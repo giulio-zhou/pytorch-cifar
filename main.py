@@ -20,6 +20,28 @@ from models import *
 from utils import progress_bar
 
 
+def get_stat(data):
+    # TODO: Add num backpropped
+    stat = {}
+    stat["average"] = np.average(data)
+    stat["p50"] = np.percentile(data, 50)
+    stat["p75"] = np.percentile(data, 75)
+    stat["p90"] = np.percentile(data, 90)
+    stat["max"] = max(data)
+    stat["min"] = min(data)
+    return stat
+
+
+def update_batch_stats(batch_stats, num_backpropped, pool_losses=None, chosen_losses=None, gradients=None):
+    '''
+    batch_stats = [{'chosen_losses': {stat},
+                   'pool_losses': {stat}}]
+    '''
+    snapshot = {"chosen_losses": get_stat(chosen_losses),
+                "pool_losses": get_stat(pool_losses)}
+    batch_stats.append(snapshot)
+
+
 # Training
 def train(args,
           net,
@@ -28,7 +50,8 @@ def train(args,
           optimizer,
           epoch,
           total_num_images_backpropped,
-          images_hist):
+          images_hist,
+          batch_stats = None):
 
     print('\nEpoch: %d' % epoch)
     net.train()
@@ -40,6 +63,7 @@ def train(args,
     data_pool = []
     targets_pool = []
     ids_pool = []
+    chosen_losses = []
     num_backprop = 0
     loss_reduction = None
 
@@ -51,6 +75,7 @@ def train(args,
 
             output = net(data)
             loss = nn.CrossEntropyLoss(reduce=True)(output, targets)
+
             losses_pool.append(loss.item())
             data_pool.append(data)
             targets_pool.append(targets)
@@ -62,6 +87,7 @@ def train(args,
                 chosen_data = [data_pool[i] for i in indices]
                 chosen_targets = [targets_pool[i] for i in indices]
                 chosen_ids = [ids_pool[i] for i in indices]
+                chosen_losses = [losses_pool[i] for i in indices]
 
                 data_batch = torch.stack(chosen_data, dim=1)[0]
                 targets_batch = torch.cat(chosen_targets)
@@ -69,6 +95,13 @@ def train(args,
 
                 for chosen_id in chosen_ids:
                     images_hist[chosen_id] += 1
+
+                # Get stats for batches
+                if batch_stats is not None:
+                    update_batch_stats(batch_stats,
+                                       total_num_images_backpropped,
+                                       pool_losses = losses_pool, 
+                                       chosen_losses = chosen_losses)
 
                 # Note: This will only work for batch size of 1
                 loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
@@ -169,16 +202,19 @@ def main():
                         help='input batch size for testing (default: 1000)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
+    parser.add_argument('--net', default="resnet", metavar='N',
+                        help='which network architecture to train')
+
+    parser.add_argument('--selective-backprop', type=bool, default=False, metavar='N',
+                        help='whether or not to use selective-backprop')
     parser.add_argument('--top-k', type=int, default=8, metavar='N',
                         help='how many images to backprop per batch')
     parser.add_argument('--pool-size', type=int, default=16, metavar='N',
                         help='how many images to backprop per batch')
-    parser.add_argument('--selective-backprop', type=bool, default=False, metavar='N',
-                        help='whether or not to use selective-backprop')
-    parser.add_argument('--net', default="resnet", metavar='N',
-                        help='which network architecture to train')
-    parser.add_argument('--pickle-file', default="/tmp/image_id_hist.pickle",
-                        help='image id histogram pickle')
+    parser.add_argument('--pickle-dir', default="/tmp/",
+                        help='directory for pickles')
+    parser.add_argument('--pickle-prefix', default="stats",
+                        help='file prefix for pickles')
     parser.add_argument('--max-num-backprops', type=int, default=None, metavar='N',
                         help='how many images to backprop total')
 
@@ -252,6 +288,21 @@ def main():
     # Store frequency of each image getting backpropped
     keys = range(len(trainset))
     images_hist = dict(zip(keys, [0] * len(keys)))
+    batch_stats = []
+
+    # Make images hist pickle path
+    image_id_pickle_dir = os.path.join(args.pickle_dir, "image_id_hist")
+    if not os.path.exists(image_id_pickle_dir):
+        os.mkdir(image_id_pickle_dir)
+    image_id_pickle_file = os.path.join(image_id_pickle_dir,
+                                        "{}_images_hist.pickle".format(args.pickle_prefix))
+
+    # Make batch stats pickle path
+    batch_stats_pickle_dir = os.path.join(args.pickle_dir, "batch_stats")
+    if not os.path.exists(batch_stats_pickle_dir):
+        os.mkdir(batch_stats_pickle_dir)
+    batch_stats_pickle_file = os.path.join(batch_stats_pickle_dir,
+                                           "{}_batch_stats.pickle".format(args.pickle_prefix))
 
     total_num_images_backpropped = 0
 
@@ -272,11 +323,17 @@ def main():
                                            optimizer,
                                            epoch,
                                            total_num_images_backpropped,
-                                           images_hist)
+                                           images_hist,
+                                           batch_stats=batch_stats)
             total_num_images_backpropped += num_images_backpropped
 
-            with open(args.pickle_file, "wb") as handle:
+            # Write out summary statistics
+
+            with open(image_id_pickle_file, "wb") as handle:
                 pickle.dump(images_hist, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open(batch_stats_pickle_file, "wb") as handle:
+                pickle.dump(batch_stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':

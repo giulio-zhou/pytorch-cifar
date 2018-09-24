@@ -14,11 +14,15 @@ PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
-NUM_TRIALS=10
+
+NUM_TRIALS=1
 for i in `seq 1 $NUM_TRIALS`
 do
   OUTPUT_FILE="cifar10_"$NET"_"$TOP_K"_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i"_v1"
-  PICKLE_FILE="cifar10_"$NET"_"$TOP_K"_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i".pickle"
+  PICKLE_PREFIX="cifar10_"$NET"_"$TOP_K"_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i
+
+  echo $OUTPUT_DIR/$OUTPUT_FILE
+
   python main.py \
     --selective-backprop=True \
     --batch-size=1 \
@@ -27,6 +31,7 @@ do
     --pool-size=$POOL_SIZE \
     --decay=$DECAY \
     --max-num-backprops=$MAX_NUM_BACKPROPS \
-    --pickle-file=$PICKLE_DIR/$PICKLE_FILE \
+    --pickle-dir=$PICKLE_DIR \
+    --pickle-prefix=$PICKLE_PREFIX \
     --lr $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done
