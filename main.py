@@ -52,20 +52,121 @@ def update_batch_stats(batch_stats, num_backpropped, num_skipped,
         snapshot["pool_sps"] = get_stat(pool_sps)
     batch_stats.append(snapshot)
 
+# Training
+def train_topk(args,
+               net,
+               trainloader,
+               device,
+               optimizer,
+               epoch,
+               total_num_images_backpropped,
+               total_num_images_skipped,
+               images_hist,
+               batch_stats = None):
+
+    print('\nEpoch: %d in train_topk' % epoch)
+    net.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+
+    losses_pool = []
+    data_pool = []
+    targets_pool = []
+    ids_pool = []
+    num_backprop = 0
+    num_skipped = 0
+    loss_reduction = None
+
+    for batch_idx, (data, targets, image_id) in enumerate(trainloader):
+
+        data, targets = data.to(device), targets.to(device)
+
+        output = net(data)
+        loss = nn.CrossEntropyLoss(reduce=True)(output, targets)
+
+        losses_pool.append(loss.item())
+        data_pool.append(data)
+        targets_pool.append(targets)
+        ids_pool.append(image_id.item())
+
+        if len(losses_pool) == args.pool_size:
+
+            # Choose frames from pool to backprop
+            indices = np.array(losses_pool).argsort()[-args.top_k:]
+            chosen_data = [data_pool[i] for i in indices]
+            chosen_targets = [targets_pool[i] for i in indices]
+            chosen_ids = [ids_pool[i] for i in indices]
+            chosen_losses = [losses_pool[i] for i in indices]
+            num_skipped += len(data_pool) - len(chosen_data)
+
+            data_batch = torch.stack(chosen_data, dim=1)[0]
+            targets_batch = torch.cat(chosen_targets)
+            output_batch = net(data_batch) # redundant
+
+            for chosen_id in chosen_ids:
+                images_hist[chosen_id] += 1
+
+            # Get stats for batches
+            if batch_stats is not None:
+                update_batch_stats(batch_stats,
+                                   total_num_images_backpropped,
+                                   total_num_images_skipped,
+                                   pool_losses = losses_pool, 
+                                   chosen_losses = chosen_losses)
+
+            # Note: This will only work for batch size of 1
+            loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
+
+            optimizer.zero_grad()
+            loss_reduction.backward()
+            optimizer.step()
+            train_loss += loss_reduction.item()
+            num_backprop += len(chosen_data)
+
+            losses_pool = []
+            data_pool = []
+            targets_pool = []
+            ids_pool = []
+
+            output = output_batch
+            targets = targets_batch
+
+        _, predicted = output.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+        if batch_idx % args.log_interval == 0 and loss_reduction is not None:
+            print('train_debug,{},{},{},{:.6f},{:.6f},{},{:.6f}'.format(
+                        epoch,
+                        total_num_images_backpropped + num_backprop,
+                        total_num_images_skipped + num_skipped,
+                        loss_reduction.item(),
+                        train_loss / float(num_backprop),
+                        time.time(),
+                        100.*correct/total))
+
+        # Stop epoch rightaway if we've exceeded maximum number of epochs
+        if args.max_num_backprops:
+            if args.max_num_backprops <= total_num_images_backpropped + num_backprop:
+                return num_backprop
+
+    return num_backprop, num_skipped
+
 
 # Training
-def train(args,
-          net,
-          trainloader,
-          device,
-          optimizer,
-          epoch,
-          total_num_images_backpropped,
-          total_num_images_skipped,
-          images_hist,
-          batch_stats = None):
+def train_sampling(args,
+                   net,
+                   trainloader,
+                   device,
+                   optimizer,
+                   epoch,
+                   total_num_images_backpropped,
+                   total_num_images_skipped,
+                   images_hist,
+                   batch_stats = None):
 
-    print('\nEpoch: %d' % epoch)
+    print('\nEpoch: %d in train_sampling' % epoch)
     net.train()
     train_loss = 0
     correct = 0
@@ -90,103 +191,82 @@ def train(args,
 
         data, targets = data.to(device), targets.to(device)
 
-        if args.selective_backprop:
+        output = net(data)
+        loss = nn.CrossEntropyLoss(reduce=True)(output, targets)
 
-            output = net(data)
-            loss = nn.CrossEntropyLoss(reduce=True)(output, targets)
+        # Prepare output for L2 distance
+        softmax_output = nn.Softmax()(output)
+        #print("Softmax: ", softmax_output)
 
-            if args.sb_strategy == "sampling":
-                # Prepare output for L2 distance
-                softmax_output = nn.Softmax()(output)
-                #print("Softmax: ", softmax_output)
+        # Prepare target for L2 distance
+        target_vector = np.zeros(len(output.data[0]))
+        target_vector[targets.item()] = 1
+        target_tensor = torch.Tensor(target_vector)
 
-                # Prepare target for L2 distance
-                target_vector = np.zeros(len(output.data[0]))
-                target_vector[targets.item()] = 1
-                target_tensor = torch.Tensor(target_vector)
+        l2_dist = torch.dist(target_tensor.to(device), softmax_output)
+        #print("L2 Dist: ", l2_dist.item())
 
-                l2_dist = torch.dist(target_tensor.to(device), softmax_output)
-                #print("L2 Dist: ", l2_dist.item())
+        select_probs = torch.clamp(l2_dist, min=0.05, max=1)
+        #print("Chosen Probs: ", select_probs.item())
 
-                select_probs = torch.clamp(l2_dist, min=0.05, max=1)
-                #print("Chosen Probs: ", select_probs.item())
-
-                draw = np.random.uniform(0, 1)
-                #print("Draw: ", draw)
-                if draw < select_probs.item():
-                    chosen_losses.append(loss.item())
-                    chosen_data.append(data)
-                    chosen_targets.append(targets)
-                    chosen_ids.append(image_id.item())
-                    chosen_sps.append(select_probs.item())
-                else:
-                    num_skipped += 1
-
-            losses_pool.append(loss.item())
-            data_pool.append(data.data[0])
-            targets_pool.append(targets)
-            ids_pool.append(image_id.item())
-
-            if args.sb_strategy == "sampling":
-                sps_pool.append(select_probs.item())
-
-            if (args.sb_strategy == "topk" and len(losses_pool) == args.pool_size) or \
-                    (args.sb_strategy == "sampling" and len(chosen_losses) == args.pool_size):
-
-                if args.sb_strategy == "topk":
-                    # Choose frames from pool to backprop
-                    indices = np.array(losses_pool).argsort()[-args.top_k:]
-                    chosen_data = [data_pool[i] for i in indices]
-                    chosen_targets = [targets_pool[i] for i in indices]
-                    chosen_ids = [ids_pool[i] for i in indices]
-                    chosen_losses = [losses_pool[i] for i in indices]
-                    num_skipped += len(data_pool) - len(chosen_data)
-
-                data_batch = torch.stack(chosen_data, dim=1)[0]
-                targets_batch = torch.cat(chosen_targets)
-                output_batch = net(data_batch) # redundant
-
-                for chosen_id in chosen_ids:
-                    images_hist[chosen_id] += 1
-
-                # Get stats for batches
-                if batch_stats is not None:
-                    update_batch_stats(batch_stats,
-                                       total_num_images_backpropped,
-                                       total_num_images_skipped,
-                                       pool_losses = losses_pool, 
-                                       chosen_losses = chosen_losses,
-                                       pool_sps = sps_pool,
-                                       chosen_sps = chosen_sps)
-
-                # Note: This will only work for batch size of 1
-                loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
-
-                if args.sb_strategy == "sampling":
-                    loss_reduction /= np.average(chosen_sps)
-
-                optimizer.zero_grad()
-                loss_reduction.backward()
-                optimizer.step()
-                train_loss += loss_reduction.item()
-                num_backprop += len(chosen_data)
-
-                losses_pool = []
-                data_pool = []
-                targets_pool = []
-                ids_pool = []
-
-                output = output_batch
-                targets = targets_batch
-
+        draw = np.random.uniform(0, 1)
+        #print("Draw: ", draw)
+        if draw < select_probs.item():
+            chosen_losses.append(loss.item())
+            chosen_data.append(data)
+            chosen_targets.append(targets)
+            chosen_ids.append(image_id.item())
+            chosen_sps.append(select_probs.item())
         else:
-            output = net(data)
-            loss_reduction = nn.CrossEntropyLoss(reduce=True)(output, targets)
+            num_skipped += 1
+
+        losses_pool.append(loss.item())
+        data_pool.append(data.data[0])
+        targets_pool.append(targets)
+        ids_pool.append(image_id.item())
+        sps_pool.append(select_probs.item())
+
+        if len(chosen_losses) == args.pool_size:
+
+            data_batch = torch.stack(chosen_data, dim=1)[0]
+            targets_batch = torch.cat(chosen_targets)
+            output_batch = net(data_batch) # redundant
+
+            for chosen_id in chosen_ids:
+                images_hist[chosen_id] += 1
+
+            # Get stats for batches
+            if batch_stats is not None:
+                update_batch_stats(batch_stats,
+                                   total_num_images_backpropped,
+                                   total_num_images_skipped,
+                                   pool_losses = losses_pool, 
+                                   chosen_losses = chosen_losses,
+                                   pool_sps = sps_pool,
+                                   chosen_sps = chosen_sps)
+
+            # Note: This will only work for batch size of 1
+            loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
+            loss_reduction /= np.average(chosen_sps) # Weight by sampling probability
             optimizer.zero_grad()
             loss_reduction.backward()
             optimizer.step()
             train_loss += loss_reduction.item()
-            num_backprop += args.batch_size
+            num_backprop += len(chosen_data)
+
+            losses_pool = []
+            data_pool = []
+            targets_pool = []
+            ids_pool = []
+
+            chosen_data = []
+            chosen_losses = []
+            chosen_targets = []
+            chosen_ids = []
+            chosen_sps = []
+
+            output = output_batch
+            targets = targets_batch
 
         _, predicted = output.max(1)
         total += targets.size(0)
@@ -274,8 +354,6 @@ def main():
     parser.add_argument('--net', default="resnet", metavar='N',
                         help='which network architecture to train')
 
-    parser.add_argument('--selective-backprop', type=bool, default=False, metavar='N',
-                        help='whether or not to use selective-backprop')
     parser.add_argument('--sb-strategy', default="topk", metavar='N',
                         help='Selective backprop strategy among {topk, sampling}')
     parser.add_argument('--top-k', type=int, default=8, metavar='N',
@@ -388,7 +466,15 @@ def main():
                 if args.max_num_backprops <= total_num_images_backpropped:
                     return
 
-            num_images_backpropped, num_images_skipped = train(args,
+            if args.sb_strategy == "topk":
+                trainer = train_topk
+            elif args.sb_strategy == "sampling":
+                trainer = train_sampling
+            else:
+                print("Unknown selective backprop strategy {}".format(args.sb_strategy))
+                exit()
+
+            num_images_backpropped, num_images_skipped = trainer(args,
                                                                net,
                                                                trainloader,
                                                                device,
@@ -398,6 +484,7 @@ def main():
                                                                total_num_images_skipped,
                                                                images_hist,
                                                                batch_stats=batch_stats)
+
             total_num_images_backpropped += num_images_backpropped
             total_num_images_skipped += num_images_skipped
 
