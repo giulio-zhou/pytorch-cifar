@@ -161,6 +161,10 @@ def train(args,
 
                 # Note: This will only work for batch size of 1
                 loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
+
+                if args.sb_strategy == "sampling":
+                    loss_reduction /= np.average(chosen_sps)
+
                 optimizer.zero_grad()
                 loss_reduction.backward()
                 optimizer.step()
@@ -400,11 +404,9 @@ def main():
             # Write out summary statistics
 
             with open(image_id_pickle_file, "wb") as handle:
-                print(image_id_pickle_file)
                 pickle.dump(images_hist, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
             with open(batch_stats_pickle_file, "wb") as handle:
-                print(batch_stats_pickle_file)
                 pickle.dump(batch_stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
