@@ -76,6 +76,21 @@ def train(args,
             output = net(data)
             loss = nn.CrossEntropyLoss(reduce=True)(output, targets)
 
+            # Prepare output for L2 distance
+            softmax_output = nn.Softmax()(output)
+            print("Softmax: ", softmax_output)
+
+            # Prepare target for L2 distance
+            target_vector = np.zeros(len(output.data[0]))
+            target_vector[targets.item()] = 1
+            target_tensor = torch.Tensor(target_vector)
+
+            l2_dist = torch.dist(target_tensor.to(device), softmax_output)
+            print("L2 Dist: ", l2_dist.item())
+
+            select_probs = torch.clamp(l2_dist, min=0.05, max=1)
+            print("Chosen Probs: ", select_probs.item())
+
             losses_pool.append(loss.item())
             data_pool.append(data)
             targets_pool.append(targets)
