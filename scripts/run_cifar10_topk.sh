@@ -24,7 +24,6 @@ do
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
   python main.py \
-    --selective-backprop=True \
     --batch-size=1 \
     --top-k=$TOP_K \
     --net=$NET \

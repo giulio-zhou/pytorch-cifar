@@ -23,7 +23,6 @@ do
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
   python main.py \
-    --selective-backprop=True \
     --sb-strategy=sampling \
     --batch-size=1 \
     --net=$NET \
