@@ -14,11 +14,11 @@ mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
 
-NUM_TRIALS=1
+NUM_TRIALS=3
 for i in `seq 1 $NUM_TRIALS`
 do
-  OUTPUT_FILE="cifar10_"$NET"_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i"_v1"
-  PICKLE_PREFIX="cifar10_"$NET"_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i
+  OUTPUT_FILE="sampling_cifar10_"$NET"_0_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"
+  PICKLE_PREFIX="sampling_cifar10_"$NET"_0_"$POOL_SIZE"_"$LR"_"$DECAY"_trial"$i
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
