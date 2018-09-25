@@ -113,7 +113,9 @@ def train_topk(args,
                                    total_num_images_backpropped,
                                    total_num_images_skipped,
                                    pool_losses = losses_pool, 
-                                   chosen_losses = chosen_losses)
+                                   chosen_losses = chosen_losses,
+                                   pool_sps = [],
+                                   chosen_sps = [])
 
             # Note: This will only work for batch size of 1
             loss_reduction = nn.CrossEntropyLoss(reduce=True)(output_batch, targets_batch)
@@ -219,6 +221,7 @@ def train_sampling(args,
             chosen_sps.append(select_probs.item())
         else:
             num_skipped += 1
+            print("Skipping image with sp {}".format(select_probs))
 
         losses_pool.append(loss.item())
         data_pool.append(data.data[0])
@@ -227,10 +230,6 @@ def train_sampling(args,
         sps_pool.append(select_probs.item())
 
         if len(chosen_losses) == args.pool_size:
-
-            data_batch = torch.stack(chosen_data, dim=1)[0]
-            targets_batch = torch.cat(chosen_targets)
-            output_batch = net(data_batch) # redundant
 
             for chosen_id in chosen_ids:
                 images_hist[chosen_id] += 1
@@ -491,9 +490,11 @@ def main():
             # Write out summary statistics
 
             with open(image_id_pickle_file, "wb") as handle:
+                print(image_id_pickle_file)
                 pickle.dump(images_hist, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
             with open(batch_stats_pickle_file, "wb") as handle:
+                print(batch_stats_pickle_file)
                 pickle.dump(batch_stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
