@@ -216,7 +216,7 @@ def train_sampling(args,
         print("Chosen Probs: ", select_probs.item())
 
         draw = np.random.uniform(0, 1)
-        if draw < select_probs.item():
+        if draw < select_probs.item() or epoch == 0:
             # Do the backprop
             loss_normalized = loss / select_probs.item()
             optimizer.zero_grad()
