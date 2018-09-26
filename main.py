@@ -198,27 +198,32 @@ def train_sampling(args,
 
         # Prepare output for L2 distance
         softmax_output = nn.Softmax()(output)
-        print("Softmax: ", softmax_output)
+        #print("Softmax: ", softmax_output)
 
         # Prepare target for L2 distance
         target_vector = np.zeros(len(output.data[0]))
         target_vector[targets.item()] = 1
         target_tensor = torch.Tensor(target_vector)
-        print("Target: ", target_tensor)
+        #print("Target: ", target_tensor)
 
         l2_dist = torch.dist(target_tensor.to(device), softmax_output)
-        print("L2 Dist: ", l2_dist.item())
+        #print("L2 Dist: ", l2_dist.item())
 
         l2_dist *= l2_dist
-        print("L2 Dist Squared: ", l2_dist.item())
+        #print("L2 Dist Squared: ", l2_dist.item())
 
         select_probs = torch.clamp(l2_dist, min=args.sampling_min, max=1)
-        print("Chosen Probs: ", select_probs.item())
+        #print("Chosen Probs: ", select_probs.item())
 
         draw = np.random.uniform(0, 1)
-        if draw < select_probs.item():
+        if draw < select_probs.item() or epoch == 0:
             # Do the backprop
-            loss_normalized = loss / select_probs.item()
+            if epoch == 0:
+                # Don't do importance sampling on first epoch
+                loss_normalized = loss
+            else:
+                loss_normalized = loss / select_probs.item()
+
             optimizer.zero_grad()
             loss_normalized.backward()
             optimizer.step()
