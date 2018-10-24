@@ -1,5 +1,8 @@
 set -x
 
+ulimit -n 2048
+ulimit -a
+
 EXP_PREFIX=$1
 SAMPLING_STRATEGY=$2
 NET=$3
@@ -20,13 +23,13 @@ mkdir $PICKLE_DIR
 NUM_TRIALS=3
 for i in `seq 1 $NUM_TRIALS`
 do
-  OUTPUT_FILE="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"
-  PICKLE_PREFIX="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i
+  OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"
+  PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
   python main.py \
-    --sb-strategy=sampling \
+    --sb-strategy=deterministic \
     --net=$NET \
     --batch-size=$BATCH_SIZE \
     --decay=$DECAY \
