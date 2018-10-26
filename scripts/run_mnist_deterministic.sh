@@ -5,17 +5,18 @@ ulimit -a
 
 EXP_PREFIX=$1
 SAMPLING_STRATEGY=$2
-NET=$3
-BATCH_SIZE=$4
-LR=$5
-DECAY=$6
-MAX_NUM_BACKPROPS=$7
-SAMPLING_MIN=$8
+BATCH_SIZE=$3
+LR=$4
+DECAY=$5
+MAX_NUM_BACKPROPS=$6
+SAMPLING_MIN=$7
+
+NET="lecunn"
 
 EXP_NAME=$EXP_PREFIX"_"$SAMPLING_STRATEGY
 
-mkdir "/proj/BigLearning/ahjiang/output/cifar10/"
-OUTPUT_DIR="/proj/BigLearning/ahjiang/output/cifar10/"$EXP_NAME
+mkdir "/proj/BigLearning/ahjiang/output/mnist/"
+OUTPUT_DIR="/proj/BigLearning/ahjiang/output/mnist/"$EXP_NAME
 PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
@@ -23,14 +24,14 @@ mkdir $PICKLE_DIR
 NUM_TRIALS=1
 for i in `seq 1 $NUM_TRIALS`
 do
-  OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"
-  PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i
+  OUTPUT_FILE="deterministic_mnist_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"
+  PICKLE_PREFIX="deterministic_mnist_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
   python main.py \
     --sb-strategy=deterministic \
-    --net=$NET \
+    --dataset=mnist \
     --batch-size=$BATCH_SIZE \
     --decay=$DECAY \
     --max-num-backprops=$MAX_NUM_BACKPROPS \

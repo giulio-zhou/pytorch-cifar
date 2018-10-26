@@ -17,7 +17,7 @@ PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
-NUM_TRIALS=3
+NUM_TRIALS=1
 for i in `seq 1 $NUM_TRIALS`
 do
   OUTPUT_FILE="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_"$LR"_"$DECAY"_trial"$i"_v2"

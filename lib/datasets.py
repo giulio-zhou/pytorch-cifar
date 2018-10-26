@@ -31,6 +31,12 @@ class CIFAR10:
 
         self.num_training_images = len(self.trainset)
 
+        self.unnormalizer = transforms.Compose([transforms.Normalize(mean = [ 0., 0., 0. ],
+                                                            std = [ 1/0.2023, 1/0.1994, 1/0.2010 ]),
+                                       transforms.Normalize(mean = [ -0.4914, -0.4822, -0.4465 ],
+                                                            std = [ 1., 1., 1. ])
+                                      ])
+
 class MNIST:
     def __init__(self, device, test_batch_size, partition_size):
 
@@ -56,6 +62,11 @@ class MNIST:
                        ]))
         self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
         self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
+        self.unnormalizer = transforms.Compose([transforms.Normalize(mean = [ 0., 0., 0. ],
+                                                            std = [ 1/0.3081]),
+                                       transforms.Normalize(mean = [ -0.1307],
+                                                            std = [ 1., 1., 1. ])
+                                      ])
 
         self.num_training_images = len(self.trainset)
 

@@ -1,7 +1,6 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
-#import cv2
 import cPickle as pickle
 import pprint as pp
 import numpy as np
@@ -265,6 +264,8 @@ def main():
                         help='which network architecture to train')
     parser.add_argument('--dataset', default="cifar10", metavar='N',
                         help='which network architecture to train')
+    parser.add_argument('--write-images', default=False, type=bool,
+                        help='whether or not write png images by id')
 
     parser.add_argument('--sb-strategy', default="sampling", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
@@ -287,6 +288,8 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     best_acc = 0  # best test accuracy
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
+
 
     # Model
     print('==> Building model..')
@@ -341,6 +344,10 @@ def main():
     optimizer = optim.SGD(dataset.model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.decay)
 
     state = State(dataset.num_training_images, args.pickle_dir, args.pickle_prefix)
+    if args.write_images:
+        image_writer = lib.loggers.ImageWriter('./data', args.dataset, dataset.unnormalizer)
+        for partition in dataset.partitions:
+            image_writer.write_partition(partition)
 
     ## Setup Trainer ##
     square = args.sampling_strategy in ["square", "translate", "recenter"]

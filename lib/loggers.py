@@ -4,6 +4,39 @@ import os
 import time
 import torch
 import torch.nn as nn
+import torchvision
+import torchvision.transforms as transforms
+from PIL import Image
+
+
+class ImageWriter(object):
+    def __init__(self, data_dir, dataset, unnormalizer):
+        self.data_dir = data_dir
+        self.dataset = dataset
+        self.unnormalizer = unnormalizer
+        self.init_data()
+
+    def init_data(self):
+        if not os.path.exists(self.data_dir):
+            os.mkdir(self.data_dir)
+
+        self.output_dir = os.path.join(self.data_dir, "{}_by_id".format(self.dataset))
+        print(self.output_dir)
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
+
+    def write_partition(self, partition):
+        to_pil = torchvision.transforms.ToPILImage()
+        for elem in partition:
+            img_tensor = elem[0].cpu()
+            unnormalized = self.unnormalizer(img_tensor)
+            img = to_pil(unnormalized)
+
+            img_id = elem[2]
+            img_file = os.path.join(self.output_dir, "image-{}.png".format(img_id))
+
+            img.save(img_file, 'PNG')
+
 
 class ProbabilityByImageLogger(object):
     def __init__(self, pickle_dir, pickle_prefix, max_num_images=100):
