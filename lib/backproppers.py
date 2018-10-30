@@ -14,6 +14,10 @@ class PrimedBackpropper(object):
     def get_backpropper(self):
         return self.initial if self.epoch < self.initial_epochs else self.final
 
+    @property
+    def optimizer(self):
+        return self.initial.optimizer if self.epoch < self.initial_epochs else self.final.optimizer
+
     def backward_pass(self, *args, **kwargs):
         return self.get_backpropper().backward_pass(*args, **kwargs)
 

@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import cPickle as pickle
+import json
 import pprint as pp
 import numpy as np
 import time
@@ -114,7 +115,8 @@ class Trainer(object):
                  selector,
                  backpropper,
                  batch_size,
-                 max_num_backprops=float('inf')):
+                 max_num_backprops=float('inf'),
+                 lr_schedule=None):
         self.device = device
         self.net = net
         self.selector = selector
@@ -126,6 +128,9 @@ class Trainer(object):
         self.global_num_backpropped = 0
         self.max_num_backprops = max_num_backprops
         self.on_backward_pass(self.update_num_backpropped)
+        if lr_schedule:
+            self.load_lr_schedule(lr_schedule)
+            self.on_backward_pass(self.update_learning_rate)
 
     def update_num_backpropped(self, batch):
         self.global_num_backpropped += sum([1 for e in batch if e.select])
@@ -143,6 +148,28 @@ class Trainer(object):
     def emit_backward_pass(self, batch):
         for handler in self.backward_pass_handlers:
             handler(batch)
+
+    # TODO move to a LRScheduler object or to backpropper
+    def load_lr_schedule(self, schedule_path):
+        with open(schedule_path, "r") as f:
+            data = json.load(f)
+        self.lr_schedule = {}
+        for k in data:
+            self.lr_schedule[int(k)] = data[k]
+
+    def set_learning_rate(self, lr):
+        print("Setting learning rate to {} at {} backprops".format(lr,
+                                                                   self.global_num_backpropped))
+        for param_group in self.backpropper.optimizer.param_groups:
+            param_group['lr'] = lr
+
+    def update_learning_rate(self, batch):
+        for start_num_backprop in reversed(sorted(self.lr_schedule)):
+            lr = self.lr_schedule[start_num_backprop]
+            if self.global_num_backpropped >= start_num_backprop:
+                if self.backpropper.optimizer.param_groups[0]['lr'] is not lr:
+                    self.set_learning_rate(lr)
+                break
 
     @property
     def stopped(self):
@@ -251,6 +278,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+    parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
     parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
@@ -396,7 +424,8 @@ def main():
                       selector,
                       backpropper,
                       args.batch_size,
-                      max_num_backprops=args.max_num_backprops)
+                      max_num_backprops=args.max_num_backprops,
+                      lr_schedule=args.lr_sched)
     logger = lib.loggers.Logger(log_interval = args.log_interval)
     image_id_hist_logger = lib.loggers.ImageIdHistLogger(args.pickle_dir,
                                                          args.pickle_prefix,
