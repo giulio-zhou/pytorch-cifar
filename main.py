@@ -20,11 +20,14 @@ from utils import progress_bar
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--epochs', '-e', default=150, type=int, help='number of epochs')
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
+global_num_backpropped = 0 # start from epoch 0 or last checkpoint num_backpropped
 
 # Data
 print('==> Preparing data..')
@@ -74,12 +77,14 @@ if args.resume:
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
+    global_num_backpropped = checkpoint['num_backpropped']
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
 # Training
 def train(epoch):
+    global global_num_backpropped
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -92,17 +97,26 @@ def train(epoch):
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
+        global_num_backpropped += len(inputs)
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        if batch_idx % 10 == 0:
+            print('train_debug,{},{},{},{:.6f},{:.6f},{},{:.6f}'.format(
+                epoch,
+                global_num_backpropped,
+                0,
+                train_loss/(batch_idx+1),
+                train_loss/(batch_idx+1),
+                0,
+                100.*correct/total))
 
 def test(epoch):
     global best_acc
+    global global_num_backpropped
     net.eval()
     test_loss = 0
     correct = 0
@@ -118,8 +132,14 @@ def test(epoch):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+            if batch_idx % 10 == 0:
+                print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
+                    epoch,
+                    global_num_backpropped,
+                    0,
+                    test_loss,
+                    100.*correct/total,
+                    0))
 
     # Save checkpoint.
     acc = 100.*correct/total
@@ -129,6 +149,7 @@ def test(epoch):
             'net': net.state_dict(),
             'acc': acc,
             'epoch': epoch,
+            'num_backpropped': global_num_backpropped,
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
@@ -136,6 +157,6 @@ def test(epoch):
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+200):
+for epoch in range(start_epoch, start_epoch+args.epochs):
     train(epoch)
     test(epoch)
