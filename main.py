@@ -137,24 +137,23 @@ def test(epoch):
                     epoch,
                     global_num_backpropped,
                     0,
-                    test_loss,
+                    test_loss / len(testloader.dataset),
                     100.*correct/total,
                     0))
 
     # Save checkpoint.
     acc = 100.*correct/total
-    if acc > best_acc:
-        print('Saving..')
-        state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
-            'num_backpropped': global_num_backpropped,
-        }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/ckpt.t7')
-        best_acc = acc
+    print('Saving..')
+    state = {
+        'net': net.state_dict(),
+        'acc': acc,
+        'epoch': epoch,
+        'num_backpropped': global_num_backpropped,
+    }
+    if not os.path.isdir('checkpoint'):
+        os.mkdir('checkpoint')
+    torch.save(state, './checkpoint/ckpt.t7')
+    best_acc = acc
 
 
 for epoch in range(start_epoch, start_epoch+args.epochs):
