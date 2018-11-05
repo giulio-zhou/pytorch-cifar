@@ -24,6 +24,15 @@ import lib.datasets
 import lib.loggers
 import lib.selectors
 
+import random
+
+seed = 1337
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+
+
 best_acc = 0
 
 def get_stat(data):
