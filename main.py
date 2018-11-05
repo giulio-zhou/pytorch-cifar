@@ -177,22 +177,26 @@ class Trainer(object):
 
     def train(self, trainloader):
         self.net.train()
-        for batch in trainloader:
+        for i, batch in enumerate(trainloader):
             if self.stopped: break
-            self.train_batch(batch)
+            if i == len(trainloader) - 1:
+                self.train_batch(batch, final=True)
+            else:
+                self.train_batch(batch, final=False)
 
-    def train_batch(self, batch):
+    def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)
         annotated_forward_batch = self.selector.mark(forward_pass_batch)
         self.emit_forward_pass(annotated_forward_batch)
         self.backprop_queue += annotated_forward_batch
-        backprop_batch = self.get_batch()
+        backprop_batch = self.get_batch(final)
         if backprop_batch:
             annotated_backward_batch = self.backpropper.backward_pass(backprop_batch)
             self.emit_backward_pass(annotated_backward_batch)
 
     def forward_pass(self, data, targets, image_ids):
         data, targets = data.to(self.device), targets.to(self.device)
+        # DIFFERENCE: Orig performs zero_grad here
         outputs = self.net(data)
         losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
@@ -202,7 +206,7 @@ class Trainer(object):
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
         return [Example(*example) for example in examples]
 
-    def get_batch(self):
+    def get_batch(self, final):
         num_images_to_backprop = 0
         for index, example in enumerate(self.backprop_queue):
             num_images_to_backprop += int(example.select)
@@ -211,6 +215,10 @@ class Trainer(object):
                 backprop_batch = self.backprop_queue[:index+1]
                 self.backprop_queue = self.backprop_queue[index+1:]
                 return backprop_batch
+        if final:
+            backprop_batch = self.backprop_queue
+            self.backprop_queue = []
+            return backprop_batch
         return None
 
 
@@ -230,7 +238,7 @@ def test(args,
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = F.nll_loss(outputs, targets)
+            loss = nn.CrossEntropyLoss()(outputs, targets)
 
             test_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -284,8 +292,8 @@ def main():
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
     parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
+    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
+                        help='input batch size for testing (default: 100)')
     parser.add_argument('--log-interval', type=int, default=5, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--net', default="resnet", metavar='N',
@@ -369,7 +377,10 @@ def main():
         print("Only cifar10 is implemented")
         exit()
 
-    optimizer = optim.SGD(dataset.model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.decay)
+    optimizer = optim.SGD(dataset.model.parameters(),
+                          lr=args.lr,
+                          momentum=args.momentum,
+                          weight_decay=args.decay)
 
     state = State(dataset.num_training_images, args.pickle_dir, args.pickle_prefix)
     if args.write_images:
@@ -443,6 +454,7 @@ def main():
 
         if stopped: break
 
+        '''
         for partition in dataset.partitions:
             trainloader = torch.utils.data.DataLoader(partition,
                                                       batch_size=args.batch_size,
@@ -455,6 +467,19 @@ def main():
             if trainer.stopped:
                 stopped = True
                 break
+        '''
+        trainloader = torch.utils.data.DataLoader(dataset.trainset,
+                                                  batch_size=args.batch_size,
+                                                  shuffle=True,
+                                                  num_workers=2)
+
+        trainer.train(trainloader)
+        logger.next_partition()
+        if trainer.stopped:
+            stopped = True
+            break
+
+        test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
