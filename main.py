@@ -1,6 +1,7 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,11 +12,18 @@ import torchvision
 import torchvision.transforms as transforms
 
 import os
+import random
 import argparse
 
 from models import *
 from utils import progress_bar
 
+
+seed = 1337
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -44,10 +52,10 @@ transform_test = transforms.Compose([
 ])
 
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=0)
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=0)
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -73,7 +81,7 @@ if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/ckpt.t7')
+    checkpoint = torch.load('./checkpoint/ckpt.debug.t7')
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
@@ -95,6 +103,7 @@ def train(epoch):
         optimizer.zero_grad()
         outputs = net(inputs)
         loss = criterion(outputs, targets)
+
         loss.backward()
         optimizer.step()
         global_num_backpropped += len(inputs)
@@ -132,14 +141,13 @@ def test(epoch):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            if batch_idx % 10 == 0:
-                print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
-                    epoch,
-                    global_num_backpropped,
-                    0,
-                    test_loss / len(testloader.dataset),
-                    100.*correct/total,
-                    0))
+    print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
+        epoch,
+        global_num_backpropped,
+        0,
+        test_loss / len(testloader.dataset),
+        100.*correct/total,
+        0))
 
     # Save checkpoint.
     acc = 100.*correct/total
@@ -147,12 +155,12 @@ def test(epoch):
     state = {
         'net': net.state_dict(),
         'acc': acc,
-        'epoch': epoch,
+        'epoch': epoch + 1,
         'num_backpropped': global_num_backpropped,
     }
     if not os.path.isdir('checkpoint'):
         os.mkdir('checkpoint')
-    torch.save(state, './checkpoint/ckpt.t7')
+    torch.save(state, './checkpoint/ckpt.debug.t7')
     best_acc = acc
 
 
