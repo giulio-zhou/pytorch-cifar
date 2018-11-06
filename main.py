@@ -12,7 +12,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
-
 import os
 import argparse
 
@@ -28,8 +27,8 @@ import random
 
 seed = 1337
 random.seed(seed)
+np.random.seed(seed)
 torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
 torch.backends.cudnn.deterministic = True
 
 
@@ -323,7 +322,7 @@ def main():
     parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
                         help='how many images to backprop total')
 
-    parser.add_argument('--sampling-strategy', default="recenter", metavar='N',
+    parser.add_argument('--sampling-strategy', default="square", metavar='N',
                         help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
     parser.add_argument('--sampling-min', type=float, default=0.05,
                         help='Minimum sampling rate for sampling strategy')
@@ -468,7 +467,7 @@ def main():
             trainloader = torch.utils.data.DataLoader(partition,
                                                       batch_size=args.batch_size,
                                                       shuffle=True,
-                                                      num_workers=2)
+                                                      num_workers=0)
             test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
 
             trainer.train(trainloader)
@@ -480,8 +479,7 @@ def main():
         trainloader = torch.utils.data.DataLoader(dataset.trainset,
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
-                                                  num_workers=2)
-
+                                                  num_workers=0)
         trainer.train(trainloader)
         logger.next_partition()
         if trainer.stopped:

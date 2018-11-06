@@ -22,7 +22,7 @@ class CIFAR10:
         self.testloader = torch.utils.data.DataLoader(testset,
                                                       batch_size=test_batch_size,
                                                       shuffle=False,
-                                                      num_workers=2)
+                                                      num_workers=0)
 
         # Training set
         transform_train = transforms.Compose([
@@ -60,7 +60,7 @@ class MNIST:
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
                        ])),
-            batch_size=test_batch_size, shuffle=False, num_workers=2)
+            batch_size=test_batch_size, shuffle=False, num_workers=0)
 
         # Training set
 
