@@ -44,9 +44,13 @@ class CIFAR10:
                                                      train=True,
                                                      download=False,
                                                      transform=transform_train)
-        self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
-        self.trainset = self.trainset
-        self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
+        # DEBUG2
+        self.image_ids_map = {}
+        for i, t in enumerate(self.trainset):
+            self.image_ids_map[t[0]] = i
+
+        #self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
+        #self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
 
         self.num_training_images = len(self.trainset)
 
