@@ -94,7 +94,7 @@ if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/{}'.format(args.checkpoint))
+    checkpoint = torch.load('./checkpoint/ckpt.{}.t7'.format(args.checkpoint))
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
@@ -204,7 +204,7 @@ def test(epoch):
     }
     if not os.path.isdir('checkpoint'):
         os.mkdir('checkpoint')
-    torch.save(state, './checkpoint/{}'.format(args.checkpoint))
+    torch.save(state, './checkpoint/ckpt.{}.t7'.format(args.checkpoint))
     best_acc = acc
 
 
