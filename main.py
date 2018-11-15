@@ -1,6 +1,7 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
+import argparse
 import cPickle as pickle
 import json
 import pprint as pp
@@ -11,9 +12,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
 import os
-import argparse
+import random
 
 from models import *
 from utils import progress_bar
@@ -23,7 +23,6 @@ import lib.datasets
 import lib.loggers
 import lib.selectors
 
-import random
 
 def set_random_seeds(seed):
     if seed:
@@ -459,7 +458,7 @@ def main():
     stopped = False
 
 
-    for epoch in range(start_epoch, start_epoch+500):
+    for epoch in range(start_epoch, start_epoch+5000):
 
         if stopped: break
 
