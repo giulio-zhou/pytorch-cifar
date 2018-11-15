@@ -329,7 +329,6 @@ def main():
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    best_acc = 0  # best test accuracy
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     # Model
@@ -371,7 +370,6 @@ def main():
         print("Loading checkpoint at {}".format(checkpoint_file))
         checkpoint = torch.load(checkpoint_file)
         net.load_state_dict(checkpoint['net'])
-        best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
     if args.dataset == "cifar10":
