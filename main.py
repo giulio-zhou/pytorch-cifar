@@ -20,13 +20,12 @@ from utils import progress_bar
 
 DEBUG = False
 
-if DEBUG:
-    print("Setting static random seeds")
-    seed = 1337
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
+print("Setting static random seeds")
+seed = 1337
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
