@@ -103,19 +103,18 @@ def main():
         start_epoch = checkpoint['epoch']
         global_num_backpropped = checkpoint['num_backpropped']
 
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-
     trainer = Trainer(device,
                       net,
                       None,
                       None,
                       128,
                       max_num_backprops=None,
-                      lr_schedule=None,
-                      optimizer=optimizer)
+                      lr_schedule=None)
+
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
     for epoch in range(start_epoch, start_epoch+args.epochs):
-        trainer.train(trainloader, epoch, global_num_backpropped)
+        trainer.train(trainloader, optimizer, epoch, global_num_backpropped)
         test(epoch, device, net, testloader, global_num_backpropped)
 
 def test(epoch, device, net, testloader, global_num_backpropped):
@@ -174,36 +173,6 @@ def test(epoch, device, net, testloader, global_num_backpropped):
     torch.save(state, './checkpoint/ckpt.debug.t7')
     best_acc = acc
 
-class Example(object):
-    # TODO: Add ExampleCollection class
-    def __init__(self,
-                 loss=None,
-                 softmax_output=None,
-                 target=None,
-                 datum=None,
-                 image_id=None,
-                 select_probability=None):
-        #self.loss = loss.detach()
-        #self.softmax_output = softmax_output.detach()
-        self.loss = loss
-        self.softmax_output = softmax_output
-        self.target = target.detach()
-        self.datum = datum.detach()
-        if image_id:
-            self.image_id = image_id.detach()
-        if select_probability:
-            self.select_probability = select_probability
-        self.backpropped_loss = None   # Populated after backprop
-
-    @property
-    def predicted(self):
-        _, predicted = self.softmax_output.max(0)
-        return predicted
-
-    @property
-    def is_correct(self):
-        return self.predicted.eq(self.target)
-
 class Trainer(object):
     def __init__(self,
                  device,
@@ -212,8 +181,7 @@ class Trainer(object):
                  backpropper,
                  batch_size,
                  max_num_backprops=float('inf'),
-                 lr_schedule=None,
-                 optimizer=None):
+                 lr_schedule=None):
         self.device = device
         self.net = net
         self.selector = selector
@@ -224,37 +192,47 @@ class Trainer(object):
         self.backward_pass_handlers = []
         self.global_num_backpropped = 0
         self.max_num_backprops = max_num_backprops
-        self.on_backward_pass(self.update_num_backpropped)
-
-        # Temporary
-        self.optimizer = optimizer
-
-    def update_num_backpropped(self, batch):
-        self.global_num_backpropped += sum([1 for e in batch])
-
-    def on_forward_pass(self, handler):
-        self.forward_pass_handlers.append(handler)
-
-    def on_backward_pass(self, handler):
-        self.backward_pass_handlers.append(handler)
-
-    def emit_forward_pass(self, batch):
-        for handler in self.forward_pass_handlers:
-            handler(batch)
-
-    def emit_backward_pass(self, batch):
-        for handler in self.backward_pass_handlers:
-            handler(batch)
 
     # Training
-    def train(self, trainloader, epoch, global_num_backpropped):
+    def train(self, trainloader, optimizer, epoch, global_num_backpropped):
         global DEBUG
         print('\nEpoch: %d' % epoch)
         self.net.train()
+        train_loss = 0
+        correct = 0
+        total = 0
         if DEBUG:
             print("------------------------------- [TRAIN] -----------------------------------")
-        for i, batch in enumerate(trainloader):
-            self.train_batch(batch)
+        for batch_idx, (inputs, targets) in enumerate(trainloader):
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            optimizer.zero_grad()
+            outputs = self.net(inputs)
+            loss = nn.CrossEntropyLoss()(outputs, targets)
+
+            if DEBUG:
+                print("[DEBUG train] output:", outputs.data.cpu().numpy()[0])
+                print("[DEBUG train] targets:", targets.data.cpu().numpy()[0])
+                print("[DEBUG train] loss:", loss.item())
+
+            loss.backward()
+            optimizer.step()
+            global_num_backpropped += len(inputs)
+
+            train_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+            # DEBUG
+            # if batch_idx % 10 == 0:
+            print('train_debug,{},{},{},{:.6f},{:.6f},{},{:.6f}'.format(
+                epoch,
+                global_num_backpropped,
+                0,
+                train_loss/(batch_idx+1),
+                train_loss/(batch_idx+1),
+                0,
+                100.*correct/total))
         if DEBUG:
             s = torch.sum(self.net.module.conv1.weight.data)
             print("[DEBUG train] Weight sum:", s.item())
@@ -262,45 +240,6 @@ class Trainer(object):
             print("[DEBUG train] Weight sum:", s.item())
             s = torch.sum(self.net.module.linear.weight.data)
             print("[DEBUG train] Weight sum:", s.item())
-
-    def train_batch(self, batch):
-        forward_pass_batch = self.forward_pass(*batch)
-        backwards_batch = self.backwards_pass(forward_pass_batch)
-        self.emit_backward_pass(backwards_batch)
-
-    def forward_pass(self, data, targets):
-        self.optimizer.zero_grad()
-        data, targets = data.to(self.device), targets.to(self.device)
-        #outputs = self.net(data)
-        #losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
-        #loss = losses.mean()
-
-        #softmax_outputs = nn.Softmax()(outputs)
-
-        #examples = zip(losses, softmax_outputs, targets, data)
-
-        losses = [0] * len(data)
-        softmax_outputs = [0] * len(data)
-        examples = zip(losses, softmax_outputs, targets, data)
-        return [Example(*example) for example in examples]
-
-    def backwards_pass(self, batch):
-
-        targets = torch.stack([example.target for example in batch])
-        data = torch.stack([example.datum for example in batch])
-        outputs = self.net(data)
-        loss = nn.CrossEntropyLoss()(outputs, targets)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        if DEBUG:
-            print("[DEBUG train] bw output:", outputs.data.cpu().numpy()[0])
-            print("[DEBUG train] bw targets:", targets.data.cpu().numpy()[0])
-            print("[DEBUG train] bw loss:", loss.item())
-
-        return batch
-
 
 if __name__ == '__main__':
     main()
