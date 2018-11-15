@@ -18,7 +18,7 @@ import argparse
 from models import *
 from utils import progress_bar
 
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
     print("Setting static random seeds")
@@ -33,6 +33,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--augment', '-a', action='store_true', help='Turn on data augmentation')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--epochs', '-e', default=150, type=int, help='number of epochs')
+parser.add_argument('--checkpoint', '-c', default="ckpt.t7", type=str, help='checkpoint filename')
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -94,7 +95,7 @@ if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/ckpt.debug.t7')
+    checkpoint = torch.load('./checkpoint/{}'.format(args.checkpoint))
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
@@ -174,7 +175,6 @@ def test(epoch):
 
             loss = criterion(outputs, targets)
 
-            print("[DEBUG test] net.eval?:", net.training)
             if DEBUG:
                 print("[DEBUG test] output:", outputs.data.cpu().numpy()[-1])
                 print("[DEBUG test] BS:", len(inputs.data.cpu().numpy()))
@@ -205,7 +205,7 @@ def test(epoch):
     }
     if not os.path.isdir('checkpoint'):
         os.mkdir('checkpoint')
-    torch.save(state, './checkpoint/ckpt.debug.t7')
+    torch.save(state, './checkpoint/{}'.format(args.checkpoint))
     best_acc = acc
 
 
