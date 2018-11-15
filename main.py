@@ -204,25 +204,14 @@ class Trainer(object):
             print("[DEBUG train] Weight sum:", s.item())
 
     def train_batch(self, batch, final):
-        t0 = time.time()
         forward_pass_batch = self.forward_pass(*batch)
-        t1 = time.time()
         annotated_forward_batch = self.selector.mark(forward_pass_batch)
-        t2 = time.time()
         self.emit_forward_pass(annotated_forward_batch)
         self.backprop_queue += annotated_forward_batch
         backprop_batch = self.get_batch(final)
-        t3 = time.time()
         if backprop_batch:
             annotated_backward_batch = self.backpropper.backward_pass(backprop_batch)
-            t4 = time.time()
             self.emit_backward_pass(annotated_backward_batch)
-            t5 = time.time()
-            print("timer,{},{},{},{},{}".format(t1-t0,
-                                                t2-t1,
-                                                t3-t2,
-                                                t4-t3,
-                                                t5-t4))
 
     def forward_pass(self, data, targets, image_ids):
         data, targets = data.to(self.device), targets.to(self.device)
