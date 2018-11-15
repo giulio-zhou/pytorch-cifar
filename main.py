@@ -25,12 +25,14 @@ import lib.selectors
 
 import random
 
-print("Setting static random seeds")
-seed = 1337
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
+def set_random_seeds(seed):
+    if seed:
+        print("Setting static random seeds to {}".format(seed))
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+    return
 
 def get_stat(data):
     stat = {}
@@ -309,6 +311,8 @@ def main():
                         help='which network architecture to train')
     parser.add_argument('--write-images', default=False, type=bool,
                         help='whether or not write png images by id')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed for randomization; None to not set seed')
 
     parser.add_argument('--sb-strategy', default="sampling", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
@@ -330,6 +334,8 @@ def main():
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
+    set_random_seeds(args.seed)
 
     # Model
     print('==> Building model..')
