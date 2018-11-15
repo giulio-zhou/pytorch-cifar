@@ -25,16 +25,12 @@ import lib.selectors
 
 import random
 
-DEBUG = False
-
 print("Setting static random seeds")
 seed = 1337
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
-
-best_acc = 0
 
 def get_stat(data):
     stat = {}
@@ -100,7 +96,6 @@ class Example(object):
                  datum=None,
                  image_id=None,
                  select_probability=None):
-        # DEBUG
         self.loss = loss.detach()
         self.softmax_output = softmax_output.detach()
         self.target = target.detach()
@@ -187,21 +182,12 @@ class Trainer(object):
         return self.global_num_backpropped >= self.max_num_backprops
 
     def train(self, trainloader):
-        global DEBUG
         for i, batch in enumerate(trainloader):
             if self.stopped: break
             if i == len(trainloader) - 1:
                 self.train_batch(batch, final=True)
             else:
                 self.train_batch(batch, final=False)
-
-        if DEBUG:
-            s = torch.sum(self.net.module.conv1.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
-            s = torch.sum(self.net.module.bn1.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
-            s = torch.sum(self.net.module.linear.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
 
     def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)
@@ -250,21 +236,10 @@ def test(args,
          state,
          logger):
 
-    global DEBUG
-
     net.eval()
     test_loss = 0
     correct = 0
     total = 0
-
-    if DEBUG:
-        print("------------------------------- [TEST] -------------------------------")
-        s = torch.sum(net.module.conv1.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
-        s = torch.sum(net.module.bn1.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
-        s = torch.sum(net.module.linear.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
@@ -285,11 +260,6 @@ def test(args,
             state.update_target_confidences(epoch,
                                             confidences[:10],
                                             logger.global_num_backpropped)
-
-            if DEBUG:
-                print("[DEBUG test] output:", outputs.data.cpu().numpy()[-1])
-                print("[DEBUG test] target:", targets.data.cpu().numpy()[-1])
-                print("[DEBUG test] loss:", loss.item())
 
     test_loss /= len(testloader.dataset)
     print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
@@ -315,11 +285,9 @@ def test(args,
     checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
     print("Saving checkpoint at {}".format(checkpoint_file))
     torch.save(net_state, checkpoint_file)
-    best_acc = acc
 
 
 def main():
-    global DEBUG
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -440,22 +408,19 @@ def main():
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter,
-                                                                 debug=DEBUG)
+                                                                 recenter=recenter)
     elif args.sb_strategy == "deterministic":
         final_selector = lib.selectors.DeterministicSamplingSelector(probability_calculator,
                                                                      initial_sum=1)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter,
-                                                                 debug=DEBUG)
+                                                                 recenter=recenter)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
                                                 dataset.model,
-                                                optimizer,
-                                                debug=DEBUG)
+                                                optimizer)
     else:
         print("Use sb-strategy in {sampling, deterministic, baseline}")
         exit()
@@ -466,8 +431,7 @@ def main():
 
     backpropper = lib.backproppers.PrimedBackpropper(lib.backproppers.BaselineBackpropper(device,
                                                                                           dataset.model,
-                                                                                          optimizer,
-                                                                                          DEBUG),
+                                                                                          optimizer),
                                                      final_backpropper,
                                                      args.sb_start_epoch)
 
@@ -510,16 +474,11 @@ def main():
                 break
         '''
 
-        if DEBUG:
-            trainloader = torch.utils.data.DataLoader(dataset.trainset[:10000],
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      num_workers=0)
-        else:
-            trainloader = torch.utils.data.DataLoader(dataset.trainset,
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      num_workers=0)
+        trainloader = torch.utils.data.DataLoader(dataset.trainset,
+                                                  batch_size=args.batch_size,
+                                                  shuffle=True,
+                                                  num_workers=0)
+
         trainer.train(trainloader)
         logger.next_partition()
         if trainer.stopped:
