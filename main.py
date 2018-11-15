@@ -25,7 +25,7 @@ import lib.selectors
 
 import random
 
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
     print("Setting static random seeds")
@@ -102,10 +102,8 @@ class Example(object):
                  image_id=None,
                  select_probability=None):
         # DEBUG
-        #self.loss = loss.detach()
-        #self.softmax_output = softmax_output.detach()
-        self.loss = loss
-        self.softmax_output = softmax_output
+        self.loss = loss.detach()
+        self.softmax_output = softmax_output.detach()
         self.target = target.detach()
         self.datum = datum.detach()
         self.image_id = image_id.detach()
@@ -217,13 +215,13 @@ class Trainer(object):
             self.emit_backward_pass(annotated_backward_batch)
 
     def forward_pass(self, data, targets, image_ids):
-        self.net.eval()
         data, targets = data.to(self.device), targets.to(self.device)
+
+        self.net.eval()
         with torch.no_grad():
             outputs = self.net(data)
-        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
-        # Prepare output for L2 distance
+        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
         softmax_outputs = nn.Softmax()(outputs)
 
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
@@ -281,7 +279,6 @@ def test(args,
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            '''
             softmax_outputs = nn.Softmax()(outputs)
             targets_array = targets.cpu().numpy()
             outputs_array = softmax_outputs.cpu().numpy()
@@ -289,8 +286,6 @@ def test(args,
             state.update_target_confidences(epoch,
                                             confidences[:10],
                                             logger.global_num_backpropped)
-
-            '''
 
             if DEBUG:
                 print("[DEBUG test] output:", outputs.data.cpu().numpy()[-1])
