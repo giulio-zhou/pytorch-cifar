@@ -40,6 +40,6 @@ do
     --pickle-dir=$PICKLE_DIR \
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
-    --augment \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
+    #--augment \
 done
