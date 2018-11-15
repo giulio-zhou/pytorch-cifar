@@ -22,7 +22,7 @@ PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
-NUM_TRIALS=5
+NUM_TRIALS=3
 for i in `seq 1 $NUM_TRIALS`
 do
 

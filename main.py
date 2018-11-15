@@ -267,7 +267,7 @@ def test(args,
         print("[DEBUG test] Weight sum:", s.item())
 
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(testloader):
+        for batch_idx, (inputs, targets, image_ids) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
 
