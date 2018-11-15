@@ -27,13 +27,12 @@ import random
 
 DEBUG = False
 
-if DEBUG:
-    print("Setting static random seeds")
-    seed = 1337
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
+print("Setting static random seeds")
+seed = 1337
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 
 best_acc = 0
 
