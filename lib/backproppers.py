@@ -24,7 +24,8 @@ class PrimedBackpropper(object):
 
 class BaselineBackpropper(object):
 
-    def __init__(self, device, net, optimizer):
+    def __init__(self, device, net, optimizer, debug):
+        self.debug = debug
         self.optimizer = optimizer
         self.net = net
         self.device = device
@@ -61,6 +62,11 @@ class BaselineBackpropper(object):
         # Reduce loss
         loss = losses.mean()
 
+        if self.debug:
+            print("[debug backward_pass] output:", outputs.data.cpu().numpy()[0])
+            print("[debug backward_pass] targets:", targets.data.cpu().numpy()[0])
+            print("[debug backward_pass] loss:", loss.item())
+
         # Run backwards pass
         self.optimizer.zero_grad()
         loss.backward()
@@ -71,7 +77,8 @@ class BaselineBackpropper(object):
 
 class SamplingBackpropper(object):
 
-    def __init__(self, device, net, optimizer, recenter=False):
+    def __init__(self, device, net, optimizer, recenter=False, debug=False):
+        self.debug = debug
         self.optimizer = optimizer
         self.net = net
         self.device = device
@@ -124,8 +131,18 @@ class SamplingBackpropper(object):
         for example, loss in zip(batch, losses):
             example.backpropped_loss = loss
 
+        # DEBUG2
+        softmax_outputs = nn.Softmax()(outputs)
+        for example, softmax_output in zip(batch, softmax_outputs):
+            example.softmax_output = softmax_output
+
         # Reduce loss
         loss = losses.mean()
+
+        if self.debug:
+            print("[debug backward_pass] output:", outputs.data.cpu().numpy()[0])
+            print("[debug backward_pass] targets:", targets.data.cpu().numpy()[0])
+            print("[debug backward_pass] loss:", loss.item())
 
         # Run backwards pass
         self.optimizer.zero_grad()

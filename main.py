@@ -25,12 +25,15 @@ import lib.selectors
 
 import random
 
-seed = 1337
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
+DEBUG = True
 
+if DEBUG:
+    print("Setting static random seeds")
+    seed = 1337
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
 
 best_acc = 0
 
@@ -98,8 +101,11 @@ class Example(object):
                  datum=None,
                  image_id=None,
                  select_probability=None):
-        self.loss = loss.detach()
-        self.softmax_output = softmax_output.detach()
+        # DEBUG
+        #self.loss = loss.detach()
+        #self.softmax_output = softmax_output.detach()
+        self.loss = loss
+        self.softmax_output = softmax_output
         self.target = target.detach()
         self.datum = datum.detach()
         self.image_id = image_id.detach()
@@ -184,6 +190,7 @@ class Trainer(object):
         return self.global_num_backpropped >= self.max_num_backprops
 
     def train(self, trainloader):
+        global DEBUG
         self.net.train()
         for i, batch in enumerate(trainloader):
             if self.stopped: break
@@ -191,6 +198,14 @@ class Trainer(object):
                 self.train_batch(batch, final=True)
             else:
                 self.train_batch(batch, final=False)
+
+        if DEBUG:
+            s = torch.sum(self.net.module.conv1.weight.data)
+            print("[DEBUG train] Weight sum:", s.item())
+            s = torch.sum(self.net.module.bn1.weight.data)
+            print("[DEBUG train] Weight sum:", s.item())
+            s = torch.sum(self.net.module.linear.weight.data)
+            print("[DEBUG train] Weight sum:", s.item())
 
     def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)
@@ -205,11 +220,17 @@ class Trainer(object):
     def forward_pass(self, data, targets, image_ids):
         data, targets = data.to(self.device), targets.to(self.device)
         # DIFFERENCE: Orig performs zero_grad here
-        outputs = self.net(data)
-        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
+        # DEBUG2
+        #outputs = self.net(data)
+        #losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
         # Prepare output for L2 distance
-        softmax_outputs = nn.Softmax()(outputs)
+        #softmax_outputs = nn.Softmax()(outputs)
+
+        losses = torch.tensor([0] * len(data))
+        losses = losses.to(self.device)
+        softmax_outputs = torch.tensor([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] * len(data))
+        softmax_outputs = softmax_outputs.to(self.device)
 
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
         return [Example(*example) for example in examples]
@@ -238,14 +259,27 @@ def test(args,
          state,
          logger):
 
+    global DEBUG
+
     net.eval()
     test_loss = 0
     correct = 0
     total = 0
+
+    if DEBUG:
+        print("------------------------------- [TEST] -------------------------------")
+        s = torch.sum(net.module.conv1.weight.data)
+        print("[DEBUG test] Weight sum:", s.item())
+        s = torch.sum(net.module.bn1.weight.data)
+        print("[DEBUG test] Weight sum:", s.item())
+        s = torch.sum(net.module.linear.weight.data)
+        print("[DEBUG test] Weight sum:", s.item())
+
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
+
             loss = nn.CrossEntropyLoss()(outputs, targets)
 
             test_loss += loss.item()
@@ -253,6 +287,7 @@ def test(args,
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
+            '''
             softmax_outputs = nn.Softmax()(outputs)
             targets_array = targets.cpu().numpy()
             outputs_array = softmax_outputs.cpu().numpy()
@@ -260,6 +295,13 @@ def test(args,
             state.update_target_confidences(epoch,
                                             confidences[:10],
                                             logger.global_num_backpropped)
+
+            '''
+
+            if DEBUG:
+                print("[DEBUG test] output:", outputs.data.cpu().numpy()[-1])
+                print("[DEBUG test] target:", targets.data.cpu().numpy()[-1])
+                print("[DEBUG test] loss:", loss.item())
 
     test_loss /= len(testloader.dataset)
     print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
@@ -271,26 +313,25 @@ def test(args,
                 time.time()))
 
     # Save checkpoint.
-    if epoch == 65:
-        global best_acc
-        acc = 100.*correct/total
-        if acc > best_acc:
-            print('Saving..')
-            net_state = {
-                'net': net.state_dict(),
-                'acc': acc,
-                'epoch': epoch,
-            }
-            checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-            if not os.path.isdir(checkpoint_dir):
-                os.mkdir(checkpoint_dir)
-            checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
-            print("Saving checkpoint at {}".format(checkpoint_file))
-            torch.save(net_state, checkpoint_file)
-            best_acc = acc
+    acc = 100.*correct/total
+    print('Saving..')
+    net_state = {
+        'net': net.state_dict(),
+        'acc': acc,
+        'epoch': epoch,
+        'num_backpropped': logger.global_num_backpropped,
+    }
+    checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
+    if not os.path.isdir(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
+    checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
+    print("Saving checkpoint at {}".format(checkpoint_file))
+    torch.save(net_state, checkpoint_file)
+    best_acc = acc
 
 
 def main():
+    global DEBUG
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -298,11 +339,13 @@ def main():
     parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
+                        help='turn on data augmentation for CIFAR10')
     parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
     parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                         help='input batch size for testing (default: 100)')
-    parser.add_argument('--log-interval', type=int, default=5, metavar='N',
+    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--net', default="resnet", metavar='N',
                         help='which network architecture to train')
@@ -332,8 +375,6 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     best_acc = 0  # best test accuracy
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-
-
 
     # Model
     print('==> Building model..')
@@ -378,7 +419,7 @@ def main():
         start_epoch = checkpoint['epoch']
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100)
+        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100, args.augment)
     elif args.dataset == "mnist":
         dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 100)
     else:
@@ -411,19 +452,22 @@ def main():
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter)
+                                                                 recenter=recenter,
+                                                                 debug=DEBUG)
     elif args.sb_strategy == "deterministic":
         final_selector = lib.selectors.DeterministicSamplingSelector(probability_calculator,
                                                                      initial_sum=1)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter)
+                                                                 recenter=recenter,
+                                                                 debug=DEBUG)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
                                                 dataset.model,
-                                                optimizer)
+                                                optimizer,
+                                                debug=DEBUG)
     else:
         print("Use sb-strategy in {sampling, deterministic, baseline}")
         exit()
@@ -434,7 +478,8 @@ def main():
 
     backpropper = lib.backproppers.PrimedBackpropper(lib.backproppers.BaselineBackpropper(device,
                                                                                           dataset.model,
-                                                                                          optimizer),
+                                                                                          optimizer,
+                                                                                          DEBUG),
                                                      final_backpropper,
                                                      args.sb_start_epoch)
 
@@ -476,17 +521,24 @@ def main():
                 stopped = True
                 break
         '''
-        trainloader = torch.utils.data.DataLoader(dataset.trainset,
-                                                  batch_size=args.batch_size,
-                                                  shuffle=True,
-                                                  num_workers=0)
+
+        if DEBUG:
+            trainloader = torch.utils.data.DataLoader(dataset.trainset[:10000],
+                                                      batch_size=args.batch_size,
+                                                      shuffle=True,
+                                                      num_workers=0)
+        else:
+            trainloader = torch.utils.data.DataLoader(dataset.trainset,
+                                                      batch_size=args.batch_size,
+                                                      shuffle=True,
+                                                      num_workers=0)
         trainer.train(trainloader)
         logger.next_partition()
         if trainer.stopped:
             stopped = True
             break
 
-        test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
+        test(args, trainer.net, dataset.testloader, device, epoch, state, logger)
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
