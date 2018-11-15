@@ -45,6 +45,7 @@ class BaselineBackpropper(object):
         return torch.tensor(probabilities, dtype=torch.float)
 
     def backward_pass(self, batch):
+        self.net.train()
 
         data = self._get_chosen_data_tensor(batch)
         targets = self._get_chosen_targets_tensor(batch)
@@ -108,6 +109,7 @@ class SamplingBackpropper(object):
         return float(self.sum_select_probabilities) / self.total_num_examples
 
     def backward_pass(self, batch):
+        self.net.train()
 
         self.update_sum_probabilities(batch)
 
@@ -130,11 +132,6 @@ class SamplingBackpropper(object):
         # Add for logging selected loss
         for example, loss in zip(batch, losses):
             example.backpropped_loss = loss
-
-        # DEBUG2
-        softmax_outputs = nn.Softmax()(outputs)
-        for example, softmax_output in zip(batch, softmax_outputs):
-            example.softmax_output = softmax_output
 
         # Reduce loss
         loss = losses.mean()

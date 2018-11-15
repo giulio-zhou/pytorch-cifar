@@ -99,9 +99,7 @@ class SelectProbabiltyCalculator(object):
 
     def get_probability(self, target, softmax_output):
         target_tensor = self.hot_encode_scalar(target)
-        # l2_dist = torch.dist(target_tensor.to(self.device), softmax_output)
-        # DEBUG2
-        l2_dist = torch.tensor(1.)
+        l2_dist = torch.dist(target_tensor.to(self.device), softmax_output)
         if self.square:
             l2_dist *= l2_dist
         if self.translate:

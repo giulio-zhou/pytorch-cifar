@@ -191,7 +191,6 @@ class Trainer(object):
 
     def train(self, trainloader):
         global DEBUG
-        self.net.train()
         for i, batch in enumerate(trainloader):
             if self.stopped: break
             if i == len(trainloader) - 1:
@@ -218,19 +217,14 @@ class Trainer(object):
             self.emit_backward_pass(annotated_backward_batch)
 
     def forward_pass(self, data, targets, image_ids):
+        self.net.eval()
         data, targets = data.to(self.device), targets.to(self.device)
-        # DIFFERENCE: Orig performs zero_grad here
-        # DEBUG2
-        #outputs = self.net(data)
-        #losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
+        with torch.no_grad():
+            outputs = self.net(data)
+        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
         # Prepare output for L2 distance
-        #softmax_outputs = nn.Softmax()(outputs)
-
-        losses = torch.tensor([0] * len(data))
-        losses = losses.to(self.device)
-        softmax_outputs = torch.tensor([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] * len(data))
-        softmax_outputs = softmax_outputs.to(self.device)
+        softmax_outputs = nn.Softmax()(outputs)
 
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
         return [Example(*example) for example in examples]
