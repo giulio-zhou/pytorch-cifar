@@ -101,8 +101,11 @@ class Example(object):
                  datum=None,
                  image_id=None,
                  select_probability=None):
-        self.loss = loss.detach()
-        self.softmax_output = softmax_output.detach()
+        # DEBUG
+        #self.loss = loss.detach()
+        #self.softmax_output = softmax_output.detach()
+        self.loss = loss
+        self.softmax_output = softmax_output
         self.target = target.detach()
         self.datum = datum.detach()
         self.image_id = image_id.detach()
@@ -188,7 +191,6 @@ class Trainer(object):
 
     def train(self, trainloader):
         global DEBUG
-        self.net.train()
         for i, batch in enumerate(trainloader):
             if self.stopped: break
             if i == len(trainloader) - 1:
@@ -215,9 +217,10 @@ class Trainer(object):
             self.emit_backward_pass(annotated_backward_batch)
 
     def forward_pass(self, data, targets, image_ids):
+        self.net.eval()
         data, targets = data.to(self.device), targets.to(self.device)
-        # DIFFERENCE: Orig performs zero_grad here
-        outputs = self.net(data)
+        with torch.no_grad():
+            outputs = self.net(data)
         losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
         # Prepare output for L2 distance
@@ -258,6 +261,7 @@ def test(args,
     total = 0
 
     if DEBUG:
+        print("------------------------------- [TEST] -------------------------------")
         s = torch.sum(net.module.conv1.weight.data)
         print("[DEBUG test] Weight sum:", s.item())
         s = torch.sum(net.module.bn1.weight.data)
