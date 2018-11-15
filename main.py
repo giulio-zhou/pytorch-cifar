@@ -463,7 +463,6 @@ def main():
 
         if stopped: break
 
-        '''
         for partition in dataset.partitions:
             trainloader = torch.utils.data.DataLoader(partition,
                                                       batch_size=args.batch_size,
@@ -476,28 +475,12 @@ def main():
             if trainer.stopped:
                 stopped = True
                 break
-        '''
-
-        trainloader = torch.utils.data.DataLoader(dataset.trainset,
-                                                  batch_size=args.batch_size,
-                                                  shuffle=True,
-                                                  num_workers=0)
-
-        trainer.train(trainloader)
-        logger.next_partition()
-        if trainer.stopped:
-            stopped = True
-            break
-
-        test(args, trainer.net, dataset.testloader, device, epoch, state, logger)
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
         probability_by_image_logger.next_epoch()
         selector.next_epoch()
         backpropper.next_epoch()
-        state.write_summaries() # Writes test loggers
-
 
 if __name__ == '__main__':
     main()
