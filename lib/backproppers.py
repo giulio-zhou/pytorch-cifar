@@ -44,6 +44,7 @@ class BaselineBackpropper(object):
         return torch.tensor(probabilities, dtype=torch.float)
 
     def backward_pass(self, batch):
+        self.net.train()
 
         data = self._get_chosen_data_tensor(batch)
         targets = self._get_chosen_targets_tensor(batch)
@@ -101,6 +102,7 @@ class SamplingBackpropper(object):
         return float(self.sum_select_probabilities) / self.total_num_examples
 
     def backward_pass(self, batch):
+        self.net.train()
 
         self.update_sum_probabilities(batch)
 

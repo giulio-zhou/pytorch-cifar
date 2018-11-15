@@ -1,6 +1,7 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
+import argparse
 import cPickle as pickle
 import json
 import pprint as pp
@@ -11,10 +12,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
-
 import os
-import argparse
+import random
 
 from models import *
 from utils import progress_bar
@@ -24,7 +23,15 @@ import lib.datasets
 import lib.loggers
 import lib.selectors
 
-best_acc = 0
+
+def set_random_seeds(seed):
+    if seed:
+        print("Setting static random seeds to {}".format(seed))
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+    return
 
 def get_stat(data):
     stat = {}
@@ -176,33 +183,37 @@ class Trainer(object):
         return self.global_num_backpropped >= self.max_num_backprops
 
     def train(self, trainloader):
-        self.net.train()
-        for batch in trainloader:
+        for i, batch in enumerate(trainloader):
             if self.stopped: break
-            self.train_batch(batch)
+            if i == len(trainloader) - 1:
+                self.train_batch(batch, final=True)
+            else:
+                self.train_batch(batch, final=False)
 
-    def train_batch(self, batch):
+    def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)
         annotated_forward_batch = self.selector.mark(forward_pass_batch)
         self.emit_forward_pass(annotated_forward_batch)
         self.backprop_queue += annotated_forward_batch
-        backprop_batch = self.get_batch()
+        backprop_batch = self.get_batch(final)
         if backprop_batch:
             annotated_backward_batch = self.backpropper.backward_pass(backprop_batch)
             self.emit_backward_pass(annotated_backward_batch)
 
     def forward_pass(self, data, targets, image_ids):
         data, targets = data.to(self.device), targets.to(self.device)
-        outputs = self.net(data)
-        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
-        # Prepare output for L2 distance
+        self.net.eval()
+        with torch.no_grad():
+            outputs = self.net(data)
+
+        losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
         softmax_outputs = nn.Softmax()(outputs)
 
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
         return [Example(*example) for example in examples]
 
-    def get_batch(self):
+    def get_batch(self, final):
         num_images_to_backprop = 0
         for index, example in enumerate(self.backprop_queue):
             num_images_to_backprop += int(example.select)
@@ -211,6 +222,10 @@ class Trainer(object):
                 backprop_batch = self.backprop_queue[:index+1]
                 self.backprop_queue = self.backprop_queue[index+1:]
                 return backprop_batch
+        if final:
+            backprop_batch = self.backprop_queue
+            self.backprop_queue = []
+            return backprop_batch
         return None
 
 
@@ -226,11 +241,13 @@ def test(args,
     test_loss = 0
     correct = 0
     total = 0
+
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
-            loss = F.nll_loss(outputs, targets)
+
+            loss = nn.CrossEntropyLoss()(outputs, targets)
 
             test_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -255,23 +272,20 @@ def test(args,
                 time.time()))
 
     # Save checkpoint.
-    if epoch == 65:
-        global best_acc
-        acc = 100.*correct/total
-        if acc > best_acc:
-            print('Saving..')
-            net_state = {
-                'net': net.state_dict(),
-                'acc': acc,
-                'epoch': epoch,
-            }
-            checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-            if not os.path.isdir(checkpoint_dir):
-                os.mkdir(checkpoint_dir)
-            checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
-            print("Saving checkpoint at {}".format(checkpoint_file))
-            torch.save(net_state, checkpoint_file)
-            best_acc = acc
+    acc = 100.*correct/total
+    print('Saving..')
+    net_state = {
+        'net': net.state_dict(),
+        'acc': acc,
+        'epoch': epoch,
+        'num_backpropped': logger.global_num_backpropped,
+    }
+    checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
+    if not os.path.isdir(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
+    checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
+    print("Saving checkpoint at {}".format(checkpoint_file))
+    torch.save(net_state, checkpoint_file)
 
 
 def main():
@@ -282,11 +296,13 @@ def main():
     parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
+                        help='turn on data augmentation for CIFAR10')
     parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--log-interval', type=int, default=5, metavar='N',
+    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
+                        help='input batch size for testing (default: 100)')
+    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--net', default="resnet", metavar='N',
                         help='which network architecture to train')
@@ -294,6 +310,8 @@ def main():
                         help='which network architecture to train')
     parser.add_argument('--write-images', default=False, type=bool,
                         help='whether or not write png images by id')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed for randomization; None to not set seed')
 
     parser.add_argument('--sb-strategy', default="sampling", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
@@ -306,7 +324,7 @@ def main():
     parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
                         help='how many images to backprop total')
 
-    parser.add_argument('--sampling-strategy', default="recenter", metavar='N',
+    parser.add_argument('--sampling-strategy', default="square", metavar='N',
                         help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
     parser.add_argument('--sampling-min', type=float, default=0.05,
                         help='Minimum sampling rate for sampling strategy')
@@ -314,10 +332,9 @@ def main():
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    best_acc = 0  # best test accuracy
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-
+    set_random_seeds(args.seed)
 
     # Model
     print('==> Building model..')
@@ -358,18 +375,20 @@ def main():
         print("Loading checkpoint at {}".format(checkpoint_file))
         checkpoint = torch.load(checkpoint_file)
         net.load_state_dict(checkpoint['net'])
-        best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100)
+        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100, args.augment)
     elif args.dataset == "mnist":
         dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 100)
     else:
         print("Only cifar10 is implemented")
         exit()
 
-    optimizer = optim.SGD(dataset.model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.decay)
+    optimizer = optim.SGD(dataset.model.parameters(),
+                          lr=args.lr,
+                          momentum=args.momentum,
+                          weight_decay=args.decay)
 
     state = State(dataset.num_training_images, args.pickle_dir, args.pickle_prefix)
     if args.write_images:
@@ -439,7 +458,7 @@ def main():
     stopped = False
 
 
-    for epoch in range(start_epoch, start_epoch+500):
+    for epoch in range(start_epoch, start_epoch+5000):
 
         if stopped: break
 
@@ -447,7 +466,7 @@ def main():
             trainloader = torch.utils.data.DataLoader(partition,
                                                       batch_size=args.batch_size,
                                                       shuffle=True,
-                                                      num_workers=2)
+                                                      num_workers=0)
             test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
 
             trainer.train(trainloader)
@@ -461,8 +480,6 @@ def main():
         probability_by_image_logger.next_epoch()
         selector.next_epoch()
         backpropper.next_epoch()
-        state.write_summaries() # Writes test loggers
-
 
 if __name__ == '__main__':
     main()
