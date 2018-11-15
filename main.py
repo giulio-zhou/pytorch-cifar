@@ -20,12 +20,14 @@ from utils import progress_bar
 
 DEBUG = False
 
-print("Setting static random seeds")
-seed = 1337
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
+def set_random_seeds(seed):
+    if seed:
+        print("Setting static random seeds to {}".format(seed))
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+    return
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -33,6 +35,8 @@ parser.add_argument('--augment', '-a', action='store_true', help='Turn on data a
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--epochs', '-e', default=150, type=int, help='number of epochs')
 parser.add_argument('--checkpoint', '-c', default="ckpt.t7", type=str, help='checkpoint filename')
+parser.add_argument('--seed', type=int, default=None,
+                    help='seed for randomization; None to not set seed')
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
