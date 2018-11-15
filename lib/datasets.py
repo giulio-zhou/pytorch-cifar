@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
+import lib.cifar
 
 class CIFAR10:
     def __init__(self, model, test_batch_size, partition_size, augment):
@@ -16,7 +17,7 @@ class CIFAR10:
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-        testset = torchvision.datasets.CIFAR10(root='./data',
+        testset = lib.cifar.CIFAR10(root='./data',
                                                train=False,
                                                download=False,
                                                transform=transform_test)
@@ -40,13 +41,15 @@ class CIFAR10:
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
-        self.trainset = torchvision.datasets.CIFAR10(root='./data',
+        #self.trainset = torchvision.datasets.CIFAR10(root='./data',
+        self.trainset = lib.cifar.CIFAR10(root='./data',
                                                      train=True,
                                                      download=False,
                                                      transform=transform_train)
-        self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
-        self.trainset = self.trainset
-        self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
+        # DEBUG2
+        #self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
+        #self.trainset = self.trainset
+        #self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
 
         self.num_training_images = len(self.trainset)
 
