@@ -105,7 +105,7 @@ class Example(object):
         self.softmax_output = softmax_output.detach()
         self.target = target.detach()
         self.datum = datum.detach()
-        self.image_id = image_id
+        self.image_id = image_id.detach()
         self.select_probability = select_probability
         self.backpropped_loss = None   # Populated after backprop
 
@@ -126,7 +126,6 @@ class Trainer(object):
                  selector,
                  backpropper,
                  batch_size,
-                 image_ids_map,
                  max_num_backprops=float('inf'),
                  lr_schedule=None):
         self.device = device
@@ -143,7 +142,6 @@ class Trainer(object):
         if lr_schedule:
             self.load_lr_schedule(lr_schedule)
             self.on_backward_pass(self.update_learning_rate)
-        self.image_ids_map = image_ids_map
 
     def update_num_backpropped(self, batch):
         self.global_num_backpropped += sum([1 for e in batch if e.select])
@@ -215,7 +213,7 @@ class Trainer(object):
             annotated_backward_batch = self.backpropper.backward_pass(backprop_batch)
             self.emit_backward_pass(annotated_backward_batch)
 
-    def forward_pass(self, data, targets):
+    def forward_pass(self, data, targets, image_ids):
         data, targets = data.to(self.device), targets.to(self.device)
 
         self.net.eval()
@@ -224,10 +222,6 @@ class Trainer(object):
 
         losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
         softmax_outputs = nn.Softmax()(outputs)
-
-        # DEBUG2
-        print(self.image_ids_map.keys()[0])
-        image_ids = [self.image_ids_map[d] for d in data]
 
         examples = zip(losses, softmax_outputs, targets, data, image_ids)
         return [Example(*example) for example in examples]
@@ -482,7 +476,6 @@ def main():
                       selector,
                       backpropper,
                       args.batch_size,
-                      dataset.image_ids_map,
                       max_num_backprops=args.max_num_backprops,
                       lr_schedule=args.lr_sched)
     logger = lib.loggers.Logger(log_interval = args.log_interval)
