@@ -123,7 +123,7 @@ class SamplingBackpropper(object):
         losses = nn.CrossEntropyLoss(reduce=False)(outputs, targets)
 
         # Scale each loss by image-specific select probs
-        losses = torch.div(losses, probabilities.to(self.device))
+        #losses = torch.div(losses, probabilities.to(self.device))
 
         # Scale loss by average select probs
         if self.recenter:

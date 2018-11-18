@@ -491,7 +491,7 @@ def main():
     stopped = False
 
 
-    for epoch in range(start_epoch, start_epoch+500):
+    for epoch in range(start_epoch, start_epoch+500000):
 
         if stopped: break
 
