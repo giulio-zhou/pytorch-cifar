@@ -24,8 +24,7 @@ class PrimedBackpropper(object):
 
 class BaselineBackpropper(object):
 
-    def __init__(self, device, net, optimizer, debug):
-        self.debug = debug
+    def __init__(self, device, net, optimizer):
         self.optimizer = optimizer
         self.net = net
         self.device = device
@@ -63,11 +62,6 @@ class BaselineBackpropper(object):
         # Reduce loss
         loss = losses.mean()
 
-        if self.debug:
-            print("[debug backward_pass] output:", outputs.data.cpu().numpy()[0])
-            print("[debug backward_pass] targets:", targets.data.cpu().numpy()[0])
-            print("[debug backward_pass] loss:", loss.item())
-
         # Run backwards pass
         self.optimizer.zero_grad()
         loss.backward()
@@ -78,8 +72,7 @@ class BaselineBackpropper(object):
 
 class SamplingBackpropper(object):
 
-    def __init__(self, device, net, optimizer, recenter=False, debug=False):
-        self.debug = debug
+    def __init__(self, device, net, optimizer, recenter=False):
         self.optimizer = optimizer
         self.net = net
         self.device = device
@@ -135,11 +128,6 @@ class SamplingBackpropper(object):
 
         # Reduce loss
         loss = losses.mean()
-
-        if self.debug:
-            print("[debug backward_pass] output:", outputs.data.cpu().numpy()[0])
-            print("[debug backward_pass] targets:", targets.data.cpu().numpy()[0])
-            print("[debug backward_pass] loss:", loss.item())
 
         # Run backwards pass
         self.optimizer.zero_grad()

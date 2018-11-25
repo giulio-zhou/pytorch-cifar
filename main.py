@@ -96,7 +96,6 @@ class Example(object):
                  datum=None,
                  image_id=None,
                  select_probability=None):
-        # DEBUG
         self.loss = loss.detach()
         self.softmax_output = softmax_output.detach()
         self.target = target.detach()
@@ -237,8 +236,6 @@ def test(args,
          state,
          logger):
 
-    global DEBUG
-
     net.eval()
     test_loss = 0
     correct = 0
@@ -263,11 +260,6 @@ def test(args,
             state.update_target_confidences(epoch,
                                             confidences[:10],
                                             logger.global_num_backpropped)
-
-            if DEBUG:
-                print("[DEBUG test] output:", outputs.data.cpu().numpy()[-1])
-                print("[DEBUG test] target:", targets.data.cpu().numpy()[-1])
-                print("[DEBUG test] loss:", loss.item())
 
     test_loss /= len(testloader.dataset)
     print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
@@ -296,7 +288,6 @@ def test(args,
 
 
 def main():
-    global DEBUG
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -419,22 +410,19 @@ def main():
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter,
-                                                                 debug=DEBUG)
+                                                                 recenter=recenter)
     elif args.sb_strategy == "deterministic":
         final_selector = lib.selectors.DeterministicSamplingSelector(probability_calculator,
                                                                      initial_sum=1)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer,
-                                                                 recenter=recenter,
-                                                                 debug=DEBUG)
+                                                                 recenter=recenter)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
-                                                dataset.model,
-                                                optimizer,
-                                                debug=DEBUG)
+                                                                 dataset.model,
+                                                                 optimizer)
     else:
         print("Use sb-strategy in {sampling, deterministic, baseline}")
         exit()
@@ -445,8 +433,7 @@ def main():
 
     backpropper = lib.backproppers.PrimedBackpropper(lib.backproppers.BaselineBackpropper(device,
                                                                                           dataset.model,
-                                                                                          optimizer,
-                                                                                          DEBUG),
+                                                                                          optimizer),
                                                      final_backpropper,
                                                      args.sb_start_epoch)
 
