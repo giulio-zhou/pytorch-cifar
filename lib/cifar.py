@@ -139,10 +139,6 @@ class CIFAR10(data.Dataset):
 
     def download(self):
         import tarfile
-
-        raise NotImplementedError
-
-        ''' 
         if self._check_integrity():
             print('Files already downloaded and verified')
             return
@@ -152,7 +148,6 @@ class CIFAR10(data.Dataset):
         # extract file
         with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
             tar.extractall(path=self.root)
-        '''
 
     def __repr__(self):
         fmt_str = 'Dataset ' + self.__class__.__name__ + '\n'
