@@ -1,4 +1,5 @@
 expname=$1
+SAMPLING_MIN=$2
 
 set -x
 
@@ -12,7 +13,7 @@ BATCH_SIZE=128
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
 MAX_NUM_BACKPROPS=17500000
-SAMPLING_MIN=$2
+SEED=1337
 
 EXP_NAME=$EXP_PREFIX
 
@@ -22,12 +23,12 @@ PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
-NUM_TRIALS=5
+NUM_TRIALS=3
 for i in `seq 1 $NUM_TRIALS`
 do
 
-  OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_v2"
-  PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i
+  OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
+  PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
@@ -41,5 +42,6 @@ do
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
     --augment \
+    --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done

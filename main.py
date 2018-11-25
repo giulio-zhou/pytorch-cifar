@@ -23,7 +23,6 @@ import lib.datasets
 import lib.loggers
 import lib.selectors
 
-
 def set_random_seeds(seed):
     if seed:
         print("Setting static random seeds to {}".format(seed))
@@ -243,7 +242,7 @@ def test(args,
     total = 0
 
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(testloader):
+        for batch_idx, (inputs, targets, image_ids) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
 
@@ -298,7 +297,7 @@ def main():
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
     parser.add_argument('--augment', '-a', dest='augment', action='store_true',
                         help='turn on data augmentation for CIFAR10')
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                         help='input batch size for training (default: 1)')
     parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                         help='input batch size for testing (default: 100)')
@@ -313,7 +312,7 @@ def main():
     parser.add_argument('--seed', type=int, default=None,
                         help='seed for randomization; None to not set seed')
 
-    parser.add_argument('--sb-strategy', default="sampling", metavar='N',
+    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
     parser.add_argument('--sb-start-epoch', type=int, default=0,
                         help='epoch to start selective backprop')
@@ -326,7 +325,7 @@ def main():
 
     parser.add_argument('--sampling-strategy', default="square", metavar='N',
                         help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
-    parser.add_argument('--sampling-min', type=float, default=0.05,
+    parser.add_argument('--sampling-min', type=float, default=1,
                         help='Minimum sampling rate for sampling strategy')
 
     args = parser.parse_args()
@@ -422,8 +421,8 @@ def main():
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
-                                                dataset.model,
-                                                optimizer)
+                                                                 dataset.model,
+                                                                 optimizer)
     else:
         print("Use sb-strategy in {sampling, deterministic, baseline}")
         exit()
@@ -462,18 +461,17 @@ def main():
 
         if stopped: break
 
-        for partition in dataset.partitions:
-            trainloader = torch.utils.data.DataLoader(partition,
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      num_workers=0)
-            test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
+        trainloader = torch.utils.data.DataLoader(dataset.trainset,
+                                                  batch_size=args.batch_size,
+                                                  shuffle=True,
+                                                  num_workers=0)
+        test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
 
-            trainer.train(trainloader)
-            logger.next_partition()
-            if trainer.stopped:
-                stopped = True
-                break
+        trainer.train(trainloader)
+        logger.next_partition()
+        if trainer.stopped:
+            stopped = True
+            break
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
