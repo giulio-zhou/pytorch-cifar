@@ -1,6 +1,7 @@
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
+import argparse
 import cPickle as pickle
 import json
 import pprint as pp
@@ -11,9 +12,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
 import os
-import argparse
+import random
 
 from models import *
 from utils import progress_bar
@@ -23,18 +23,14 @@ import lib.datasets
 import lib.loggers
 import lib.selectors
 
-import random
-
-DEBUG = False
-
-print("Setting static random seeds")
-seed = 1337
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-
-best_acc = 0
+def set_random_seeds(seed):
+    if seed:
+        print("Setting static random seeds to {}".format(seed))
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+    return
 
 def get_stat(data):
     stat = {}
@@ -192,21 +188,12 @@ class Trainer(object):
         return self.global_num_backpropped >= self.max_num_backprops
 
     def train(self, trainloader):
-        global DEBUG
         for i, batch in enumerate(trainloader):
             if self.stopped: break
             if i == len(trainloader) - 1:
                 self.train_batch(batch, final=True)
             else:
                 self.train_batch(batch, final=False)
-
-        if DEBUG:
-            s = torch.sum(self.net.module.conv1.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
-            s = torch.sum(self.net.module.bn1.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
-            s = torch.sum(self.net.module.linear.weight.data)
-            print("[DEBUG train] Weight sum:", s.item())
 
     def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)
@@ -262,15 +249,6 @@ def test(args,
     correct = 0
     total = 0
 
-    if DEBUG:
-        print("------------------------------- [TEST] -------------------------------")
-        s = torch.sum(net.module.conv1.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
-        s = torch.sum(net.module.bn1.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
-        s = torch.sum(net.module.linear.weight.data)
-        print("[DEBUG test] Weight sum:", s.item())
-
     with torch.no_grad():
         for batch_idx, (inputs, targets, image_ids) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
@@ -320,7 +298,6 @@ def test(args,
     checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
     print("Saving checkpoint at {}".format(checkpoint_file))
     torch.save(net_state, checkpoint_file)
-    best_acc = acc
 
 
 def main():
@@ -346,6 +323,8 @@ def main():
                         help='which network architecture to train')
     parser.add_argument('--write-images', default=False, type=bool,
                         help='whether or not write png images by id')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed for randomization; None to not set seed')
 
     parser.add_argument('--sb-strategy', default="sampling", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
@@ -366,8 +345,9 @@ def main():
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    best_acc = 0  # best test accuracy
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
+    set_random_seeds(args.seed)
 
     # Model
     print('==> Building model..')
@@ -408,7 +388,6 @@ def main():
         print("Loading checkpoint at {}".format(checkpoint_file))
         checkpoint = torch.load(checkpoint_file)
         net.load_state_dict(checkpoint['net'])
-        best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
     if args.dataset == "cifar10":
@@ -496,11 +475,10 @@ def main():
     stopped = False
 
 
-    for epoch in range(start_epoch, start_epoch+500000):
+    for epoch in range(start_epoch, start_epoch+5000):
 
         if stopped: break
 
-        '''
         for partition in dataset.partitions:
             trainloader = torch.utils.data.DataLoader(partition,
                                                       batch_size=args.batch_size,
@@ -513,33 +491,12 @@ def main():
             if trainer.stopped:
                 stopped = True
                 break
-        '''
-
-        if DEBUG:
-            trainloader = torch.utils.data.DataLoader(dataset.trainset[:10000],
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      num_workers=0)
-        else:
-            trainloader = torch.utils.data.DataLoader(dataset.trainset,
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      num_workers=0)
-        trainer.train(trainloader)
-        logger.next_partition()
-        if trainer.stopped:
-            stopped = True
-            break
-
-        test(args, trainer.net, dataset.testloader, device, epoch, state, logger)
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
         probability_by_image_logger.next_epoch()
         selector.next_epoch()
         backpropper.next_epoch()
-        state.write_summaries() # Writes test loggers
-
 
 if __name__ == '__main__':
     main()
