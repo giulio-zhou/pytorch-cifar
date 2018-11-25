@@ -306,7 +306,7 @@ def main():
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
     parser.add_argument('--augment', '-a', dest='augment', action='store_true',
                         help='turn on data augmentation for CIFAR10')
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                         help='input batch size for training (default: 1)')
     parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                         help='input batch size for testing (default: 100)')
@@ -321,7 +321,7 @@ def main():
     parser.add_argument('--seed', type=int, default=None,
                         help='seed for randomization; None to not set seed')
 
-    parser.add_argument('--sb-strategy', default="sampling", metavar='N',
+    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
     parser.add_argument('--sb-start-epoch', type=int, default=0,
                         help='epoch to start selective backprop')
@@ -334,7 +334,7 @@ def main():
 
     parser.add_argument('--sampling-strategy', default="square", metavar='N',
                         help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
-    parser.add_argument('--sampling-min', type=float, default=0.05,
+    parser.add_argument('--sampling-min', type=float, default=1,
                         help='Minimum sampling rate for sampling strategy')
 
     args = parser.parse_args()
