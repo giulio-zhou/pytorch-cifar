@@ -133,19 +133,14 @@ class Trainer(object):
         self.forward_pass_handlers = []
         self.backward_pass_handlers = []
         self.global_num_backpropped = 0
-        self.global_num_forwards = 0
         self.max_num_backprops = max_num_backprops
         self.on_backward_pass(self.update_num_backpropped)
-        self.on_forward_pass(self.update_num_forwards)
         if lr_schedule:
             self.load_lr_schedule(lr_schedule)
             self.on_backward_pass(self.update_learning_rate)
 
     def update_num_backpropped(self, batch):
         self.global_num_backpropped += sum([1 for e in batch if e.select])
-
-    def update_num_forwards(self, batch):
-        self.global_num_forwards += len(batch)
 
     def on_forward_pass(self, handler):
         self.forward_pass_handlers.append(handler)
@@ -170,15 +165,15 @@ class Trainer(object):
             self.lr_schedule[int(k)] = data[k]
 
     def set_learning_rate(self, lr):
-        print("Setting learning rate to {} at {} forwards passes".format(lr,
-                                                                   self.global_num_forwards))
+        print("Setting learning rate to {} at {} backprops".format(lr,
+                                                                   self.global_num_backpropped))
         for param_group in self.backpropper.optimizer.param_groups:
             param_group['lr'] = lr
 
     def update_learning_rate(self, batch):
         for start_num_backprop in reversed(sorted(self.lr_schedule)):
             lr = self.lr_schedule[start_num_backprop]
-            if self.global_num_forwards >= start_num_backprop:
+            if self.global_num_backpropped >= start_num_backprop:
                 if self.backpropper.optimizer.param_groups[0]['lr'] is not lr:
                     self.set_learning_rate(lr)
                 break
