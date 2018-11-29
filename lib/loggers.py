@@ -150,7 +150,7 @@ class LossesByEpochLogger(object):
         self.data += losses
 
     def handle_backward_batch(self, batch):
-        losses = [example.loss for example in batch]
+        losses = [example.loss.item() for example in batch]
         self.update_data(losses)
 
     def write(self):
