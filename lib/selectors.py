@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 
 class PrimedSelector(object):
-    def __init__(self, initial, final, initial_epochs):
-        self.epoch = 0
+    def __init__(self, initial, final, initial_epochs, epoch=0):
+        self.epoch = epoch
         self.initial = initial
         self.final = final
         self.initial_epochs = initial_epochs

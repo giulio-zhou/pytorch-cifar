@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 
 class PrimedBackpropper(object):
-    def __init__(self, initial, final, initial_epochs):
-        self.epoch = 0
+    def __init__(self, initial, final, initial_epochs, epoch=0):
+        self.epoch = epoch
         self.initial = initial
         self.final = final
         self.initial_epochs = initial_epochs
@@ -28,6 +28,7 @@ class BaselineBackpropper(object):
         self.optimizer = optimizer
         self.net = net
         self.device = device
+        # TODO: This doesn't work after resuming from checkpoint
         self.sum_select_probabilities = 0
         self.total_num_examples = 0
 
@@ -77,6 +78,7 @@ class SamplingBackpropper(object):
         self.net = net
         self.device = device
         self.recenter = recenter
+        # TODO: This doesn't work after resuming from checkpoint
         self.sum_select_probabilities = 0
         self.total_num_examples = 0
 

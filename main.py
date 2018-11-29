@@ -44,11 +44,14 @@ def get_stat(data):
 
 class State:
 
-    def __init__(self, num_images, pickle_dir, pickle_prefix):
-        self.num_images_backpropped = 0
-        self.num_images_skipped = 0
-        self.num_images_seen = 0
-        self.sum_sp = 0
+    def __init__(self, num_images,
+                       pickle_dir,
+                       pickle_prefix,
+                       num_backpropped=0,
+                       num_skipped=0):
+        self.num_images_backpropped = num_backpropped
+        self.num_images_skipped = num_skipped
+        self.num_images_seen = num_backpropped + num_skipped
         self.pickle_dir = pickle_dir
         self.pickle_prefix = pickle_prefix
 
@@ -75,16 +78,6 @@ class State:
         with open(self.target_confidences_pickle_file, "wb") as handle:
             print(self.target_confidences_pickle_file)
             pickle.dump(self.target_confidences, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def update_sum_sp(self, sp):
-        self.num_images_seen += 1
-        self.sum_sp += sp
-
-    @property
-    def average_sp(self):
-        if self.num_images_seen == 0:
-            return 1
-        return self.sum_sp / float(self.num_images_seen)
 
 
 class Example(object):
@@ -271,20 +264,23 @@ def test(args,
                 time.time()))
 
     # Save checkpoint.
-    acc = 100.*correct/total
-    print('Saving..')
-    net_state = {
-        'net': net.state_dict(),
-        'acc': acc,
-        'epoch': epoch,
-        'num_backpropped': logger.global_num_backpropped,
-    }
-    checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-    if not os.path.isdir(checkpoint_dir):
-        os.mkdir(checkpoint_dir)
-    checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
-    print("Saving checkpoint at {}".format(checkpoint_file))
-    torch.save(net_state, checkpoint_file)
+    if epoch % 1 == 0:
+        acc = 100.*correct/total
+        print('Saving..')
+        net_state = {
+            'net': net.state_dict(),
+            'acc': acc,
+            'epoch': epoch,
+            'num_backpropped': logger.global_num_backpropped,
+            'num_skipped': logger.global_num_skipped,
+        }
+        checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
+        if not os.path.isdir(checkpoint_dir):
+            os.mkdir(checkpoint_dir)
+        checkpoint_file = os.path.join(checkpoint_dir,
+                                       args.pickle_prefix + "_epoch{}_ckpt.t7".format(epoch))
+        print("Saving checkpoint at {}".format(checkpoint_file))
+        torch.save(net_state, checkpoint_file)
 
 
 def main():
@@ -294,7 +290,8 @@ def main():
     parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
     parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
-    parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+    parser.add_argument('--resume-at-epoch', type=int, default=None, metavar='N',
+                        help='which epoch to resume from')
     parser.add_argument('--augment', '-a', dest='augment', action='store_true',
                         help='turn on data augmentation for CIFAR10')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -331,7 +328,6 @@ def main():
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     set_random_seeds(args.seed)
 
@@ -365,16 +361,23 @@ def main():
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
 
-    if args.resume:
+    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+    start_num_backpropped = 0
+    start_num_skipped = 0
+
+    if args.resume_at_epoch:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-        checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
+        checkpoint_file = os.path.join(checkpoint_dir,
+                                       args.pickle_prefix + "_epoch{}_ckpt.t7".format(args.resume_at_epoch))
         assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
         print("Loading checkpoint at {}".format(checkpoint_file))
         checkpoint = torch.load(checkpoint_file)
         net.load_state_dict(checkpoint['net'])
         start_epoch = checkpoint['epoch']
+        start_num_backpropped = checkpoint['num_backpropped']
+        start_num_skipped = checkpoint['num_skipped']
 
     if args.dataset == "cifar10":
         dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100, args.augment)
@@ -389,7 +392,11 @@ def main():
                           momentum=args.momentum,
                           weight_decay=args.decay)
 
-    state = State(dataset.num_training_images, args.pickle_dir, args.pickle_prefix)
+    state = State(dataset.num_training_images,
+                  args.pickle_dir,
+                  args.pickle_prefix,
+                  start_num_backpropped,
+                  start_num_skipped)
     if args.write_images:
         image_writer = lib.loggers.ImageWriter('./data', args.dataset, dataset.unnormalizer)
         for partition in dataset.partitions:
@@ -429,13 +436,15 @@ def main():
 
     selector = lib.selectors.PrimedSelector(lib.selectors.BaselineSelector(),
                                             final_selector,
-                                            args.sb_start_epoch)
+                                            args.sb_start_epoch,
+                                            epoch=start_epoch)
 
     backpropper = lib.backproppers.PrimedBackpropper(lib.backproppers.BaselineBackpropper(device,
                                                                                           dataset.model,
                                                                                           optimizer),
                                                      final_backpropper,
-                                                     args.sb_start_epoch)
+                                                     args.sb_start_epoch,
+                                                     epoch=start_epoch)
 
     trainer = Trainer(device,
                       dataset.model,
@@ -444,7 +453,10 @@ def main():
                       args.batch_size,
                       max_num_backprops=args.max_num_backprops,
                       lr_schedule=args.lr_sched)
-    logger = lib.loggers.Logger(log_interval = args.log_interval)
+    logger = lib.loggers.Logger(log_interval = args.log_interval,
+                                epoch=start_epoch,
+                                num_backpropped=start_num_backpropped,
+                                num_skipped=start_num_skipped)
     image_id_hist_logger = lib.loggers.ImageIdHistLogger(args.pickle_dir,
                                                          args.pickle_prefix,
                                                          dataset.num_training_images)

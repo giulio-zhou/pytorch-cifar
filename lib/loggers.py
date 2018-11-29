@@ -164,13 +164,13 @@ class LossesByEpochLogger(object):
 
 class Logger(object):
 
-    def __init__(self, log_interval=1):
-        self.current_epoch = 0
+    def __init__(self, log_interval=1, epoch=0, num_backpropped=0, num_skipped=0):
+        self.current_epoch = epoch
         self.current_batch = 0
         self.log_interval = log_interval
 
-        self.global_num_backpropped = 0
-        self.global_num_skipped = 0
+        self.global_num_backpropped = num_backpropped
+        self.global_num_skipped = num_skipped
 
         self.partition_loss = 0
         self.partition_backpropped_loss = 0
