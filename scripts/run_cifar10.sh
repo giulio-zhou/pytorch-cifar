@@ -1,6 +1,6 @@
 expname=$1
 SAMPLING_MIN=$2
-NUM_TRIALS=3
+NUM_TRIALS=$3
 
 set -x
 
