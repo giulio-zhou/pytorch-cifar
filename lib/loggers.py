@@ -156,7 +156,7 @@ class LossesByEpochLogger(object):
     def write(self):
         epoch_file = "{}.epoch_{}.pickle".format(self.data_pickle_file,
                                                  self.current_epoch)
-        if self.current_epoch % 500 == 0:
+        if self.current_epoch % 50 == 0:
             with open(epoch_file, "wb") as handle:
                 print(epoch_file)
                 pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)
