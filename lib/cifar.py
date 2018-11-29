@@ -3,6 +3,7 @@ from PIL import Image
 import os
 import os.path
 import numpy as np
+from random import shuffle
 import sys
 if sys.version_info[0] == 2:
     import cPickle as pickle
@@ -81,10 +82,13 @@ class CIFAR10(data.Dataset):
                 else:
                     entry = pickle.load(f, encoding='latin1')
                 self.data.append(entry['data'])
+                print("[WARNING] SHUFFLING TARGETS")
+                shuffle(self.targets)
                 if 'labels' in entry:
                     self.targets.extend(entry['labels'])
                 else:
                     self.targets.extend(entry['fine_labels'])
+
 
         self.data = np.vstack(self.data).reshape(-1, 3, 32, 32)
         self.data = self.data.transpose((0, 2, 3, 1))  # convert to HWC
