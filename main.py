@@ -321,7 +321,7 @@ def main():
                         help='how many images to backprop total')
 
     parser.add_argument('--sampling-strategy', default="square", metavar='N',
-                        help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
+                        help='Selective backprop sampling strategy among {translate, nosquare, square}')
     parser.add_argument('--sampling-min', type=float, default=1,
                         help='Minimum sampling rate for sampling strategy')
 
@@ -403,9 +403,8 @@ def main():
             image_writer.write_partition(partition)
 
     ## Setup Trainer ##
-    square = args.sampling_strategy in ["square", "translate", "recenter"]
+    square = args.sampling_strategy in ["square", "translate"]
     translate = args.sampling_strategy in ["translate", "recenter"]
-    recenter = args.sampling_strategy == "recenter"
 
     probability_calculator = lib.selectors.SelectProbabiltyCalculator(args.sampling_min,
                                                                       len(dataset.classes),
@@ -416,15 +415,13 @@ def main():
         final_selector = lib.selectors.SamplingSelector(probability_calculator)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
-                                                                 optimizer,
-                                                                 recenter=recenter)
+                                                                 optimizer)
     elif args.sb_strategy == "deterministic":
         final_selector = lib.selectors.DeterministicSamplingSelector(probability_calculator,
                                                                      initial_sum=1)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
-                                                                 optimizer,
-                                                                 recenter=recenter)
+                                                                 optimizer)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,

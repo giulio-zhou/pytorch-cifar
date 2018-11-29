@@ -29,8 +29,6 @@ class BaselineBackpropper(object):
         self.net = net
         self.device = device
         # TODO: This doesn't work after resuming from checkpoint
-        self.sum_select_probabilities = 0
-        self.total_num_examples = 0
 
     def _get_chosen_data_tensor(self, batch):
         chosen_data = [example.datum for example in batch if example.select]
@@ -73,19 +71,10 @@ class BaselineBackpropper(object):
 
 class SamplingBackpropper(object):
 
-    def __init__(self, device, net, optimizer, recenter=False):
+    def __init__(self, device, net, optimizer):
         self.optimizer = optimizer
         self.net = net
         self.device = device
-        self.recenter = recenter
-        # TODO: This doesn't work after resuming from checkpoint
-        self.sum_select_probabilities = 0
-        self.total_num_examples = 0
-
-    def update_sum_probabilities(self, batch):
-        probabilities = [example.select_probability.item() for example in batch]
-        self.sum_select_probabilities += sum(probabilities)
-        self.total_num_examples += len(probabilities)
 
     def _get_chosen_data_tensor(self, batch):
         chosen_data = [example.datum for example in batch if example.select]
@@ -99,14 +88,8 @@ class SamplingBackpropper(object):
         probabilities = [example.select_probability for example in batch if example.select]
         return torch.tensor(probabilities, dtype=torch.float)
 
-    @property
-    def average_select_probability(self):
-        return float(self.sum_select_probabilities) / self.total_num_examples
-
     def backward_pass(self, batch):
         self.net.train()
-
-        self.update_sum_probabilities(batch)
 
         data = self._get_chosen_data_tensor(batch)
         targets = self._get_chosen_targets_tensor(batch)
@@ -119,10 +102,6 @@ class SamplingBackpropper(object):
 
         # Scale each loss by image-specific select probs
         #losses = torch.div(losses, probabilities.to(self.device))
-
-        # Scale loss by average select probs
-        if self.recenter:
-            losses = torch.mul(losses, self.average_select_probability)
 
         # Add for logging selected loss
         for example, loss in zip(batch, losses):
