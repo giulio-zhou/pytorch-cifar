@@ -448,11 +448,14 @@ def main():
     image_id_hist_logger = lib.loggers.ImageIdHistLogger(args.pickle_dir,
                                                          args.pickle_prefix,
                                                          dataset.num_training_images)
+    loss_hist_logger = lib.loggers.LossesByEpochLogger(args.pickle_dir,
+                                                       args.pickle_prefix)
     probability_by_image_logger = lib.loggers.ProbabilityByImageLogger(args.pickle_dir,
                                                                        args.pickle_prefix)
     trainer.on_forward_pass(logger.handle_forward_batch)
     trainer.on_backward_pass(logger.handle_backward_batch)
     trainer.on_backward_pass(image_id_hist_logger.handle_backward_batch)
+    trainer.on_backward_pass(loss_hist_logger.handle_backward_batch)
     trainer.on_backward_pass(probability_by_image_logger.handle_backward_batch)
     stopped = False
 
@@ -475,6 +478,7 @@ def main():
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
+        loss_hist_logger.next_epoch()
         probability_by_image_logger.next_epoch()
         selector.next_epoch()
         backpropper.next_epoch()
