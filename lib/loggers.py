@@ -134,7 +134,6 @@ class LossesByEpochLogger(object):
     def next_epoch(self):
         self.write()
         self.current_epoch += 1
-        keys = range(self.num_images)
         self.data = []
 
     def init_data(self):
