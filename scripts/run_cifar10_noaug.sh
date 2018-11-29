@@ -1,6 +1,7 @@
 expname=$1
 SAMPLING_MIN=$2
 NUM_TRIALS=$3
+CHECKPOINT_INTERVAL=$4
 
 set -x
 
@@ -40,6 +41,7 @@ do
     --pickle-dir=$PICKLE_DIR \
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
+    --checkpoint-interval=$CHECKPOINT_INTERVAL \
     --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done
