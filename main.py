@@ -264,23 +264,24 @@ def test(args,
                 time.time()))
 
     # Save checkpoint.
-    if epoch % 1 == 0:
-        acc = 100.*correct/total
-        print('Saving..')
-        net_state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
-            'num_backpropped': logger.global_num_backpropped,
-            'num_skipped': logger.global_num_skipped,
-        }
-        checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-        if not os.path.isdir(checkpoint_dir):
-            os.mkdir(checkpoint_dir)
-        checkpoint_file = os.path.join(checkpoint_dir,
-                                       args.pickle_prefix + "_epoch{}_ckpt.t7".format(epoch))
-        print("Saving checkpoint at {}".format(checkpoint_file))
-        torch.save(net_state, checkpoint_file)
+    if args.checkpoint_interval:
+        if epoch % args.checkpoint_interval == 0:
+            acc = 100.*correct/total
+            print('Saving..')
+            net_state = {
+                'net': net.state_dict(),
+                'acc': acc,
+                'epoch': epoch,
+                'num_backpropped': logger.global_num_backpropped,
+                'num_skipped': logger.global_num_skipped,
+            }
+            checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
+            if not os.path.isdir(checkpoint_dir):
+                os.mkdir(checkpoint_dir)
+            checkpoint_file = os.path.join(checkpoint_dir,
+                                           args.pickle_prefix + "_epoch{}_ckpt.t7".format(epoch))
+            print("Saving checkpoint at {}".format(checkpoint_file))
+            torch.save(net_state, checkpoint_file)
 
 
 def main():
@@ -290,6 +291,8 @@ def main():
     parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
     parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
+    parser.add_argument('--checkpoint-interval', type=int, default=None, metavar='N',
+                        help='how often to save snapshot')
     parser.add_argument('--resume-at-epoch', type=int, default=None, metavar='N',
                         help='which epoch to resume from')
     parser.add_argument('--augment', '-a', dest='augment', action='store_true',
