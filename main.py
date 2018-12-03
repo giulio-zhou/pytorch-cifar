@@ -32,6 +32,54 @@ def set_random_seeds(seed):
         torch.backends.cudnn.deterministic = True
     return
 
+def set_experiment_default_args(parser):
+    parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+    parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
+    parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
+    parser.add_argument('--decay', default=5e-4, type=float, help='decay')
+    parser.add_argument('--checkpoint-interval', type=int, default=None, metavar='N',
+                        help='how often to save snapshot')
+    parser.add_argument('--resume-at-epoch', type=int, default=None, metavar='N',
+                        help='which epoch to resume from')
+    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
+                        help='turn on data augmentation for CIFAR10')
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+                        help='input batch size for training (default: 1)')
+    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
+                        help='input batch size for testing (default: 100)')
+    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
+                        help='how many batches to wait before logging training status')
+    parser.add_argument('--net', default="resnet", metavar='N',
+                        help='which network architecture to train')
+    parser.add_argument('--dataset', default="cifar10", metavar='N',
+                        help='which network architecture to train')
+    parser.add_argument('--write-images', default=False, type=bool,
+                        help='whether or not write png images by id')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed for randomization; None to not set seed')
+
+    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
+                        help='Selective backprop strategy among {baseline, deterministic, sampling}')
+    parser.add_argument('--sb-start-epoch', type=int, default=0,
+                        help='epoch to start selective backprop')
+    parser.add_argument('--pickle-dir', default="/tmp/",
+                        help='directory for pickles')
+    parser.add_argument('--pickle-prefix', default="stats",
+                        help='file prefix for pickles')
+    parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
+                        help='how many images to backprop total')
+
+    parser.add_argument('--sampling-strategy', default="square", metavar='N',
+                        help='Selective backprop sampling strategy among {translate, nosquare, square}')
+    parser.add_argument('--sampling-min', type=float, default=1,
+                        help='Minimum sampling rate for sampling strategy')
+
+    parser.add_argument('--losses-log-interval', type=int, default=10,
+                        help='How often to write losses to file (in epochs)')
+
+    return parser
+
+
 def get_stat(data):
     stat = {}
     stat["average"] = np.average(data)
@@ -284,54 +332,7 @@ def test(args,
             torch.save(net_state, checkpoint_file)
 
 
-def main():
-
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-    parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-    parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
-    parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
-    parser.add_argument('--decay', default=5e-4, type=float, help='decay')
-    parser.add_argument('--checkpoint-interval', type=int, default=None, metavar='N',
-                        help='how often to save snapshot')
-    parser.add_argument('--resume-at-epoch', type=int, default=None, metavar='N',
-                        help='which epoch to resume from')
-    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
-                        help='turn on data augmentation for CIFAR10')
-    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
-                        help='input batch size for training (default: 1)')
-    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
-                        help='input batch size for testing (default: 100)')
-    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
-                        help='how many batches to wait before logging training status')
-    parser.add_argument('--net', default="resnet", metavar='N',
-                        help='which network architecture to train')
-    parser.add_argument('--dataset', default="cifar10", metavar='N',
-                        help='which network architecture to train')
-    parser.add_argument('--write-images', default=False, type=bool,
-                        help='whether or not write png images by id')
-    parser.add_argument('--seed', type=int, default=None,
-                        help='seed for randomization; None to not set seed')
-
-    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
-                        help='Selective backprop strategy among {baseline, deterministic, sampling}')
-    parser.add_argument('--sb-start-epoch', type=int, default=0,
-                        help='epoch to start selective backprop')
-    parser.add_argument('--pickle-dir', default="/tmp/",
-                        help='directory for pickles')
-    parser.add_argument('--pickle-prefix', default="stats",
-                        help='file prefix for pickles')
-    parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
-                        help='how many images to backprop total')
-
-    parser.add_argument('--sampling-strategy', default="square", metavar='N',
-                        help='Selective backprop sampling strategy among {translate, nosquare, square}')
-    parser.add_argument('--sampling-min', type=float, default=1,
-                        help='Minimum sampling rate for sampling strategy')
-
-    parser.add_argument('--losses-log-interval', type=int, default=10,
-                        help='How often to write losses to file (in epochs)')
-
-    args = parser.parse_args()
+def main(args):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -500,4 +501,7 @@ def main():
         backpropper.next_epoch()
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+    parser = set_experiment_default_args(parser)
+    args = parser.parse_args()
+    main(args)
