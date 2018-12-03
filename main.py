@@ -39,8 +39,8 @@ def set_experiment_default_args(parser):
     parser.add_argument('--decay', default=5e-4, type=float, help='decay')
     parser.add_argument('--checkpoint-interval', type=int, default=None, metavar='N',
                         help='how often to save snapshot')
-    parser.add_argument('--resume-at-epoch', type=int, default=None, metavar='N',
-                        help='which epoch to resume from')
+    parser.add_argument('--resume-checkpoint-file', default=None, metavar='N',
+                        help='checkpoint to resume from')
     parser.add_argument('--augment', '-a', dest='augment', action='store_true',
                         help='turn on data augmentation for CIFAR10')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -73,6 +73,8 @@ def set_experiment_default_args(parser):
                         help='Selective backprop sampling strategy among {translate, nosquare, square}')
     parser.add_argument('--sampling-min', type=float, default=1,
                         help='Minimum sampling rate for sampling strategy')
+    parser.add_argument('--sampling-max', type=float, default=1,
+                        help='Maximum sampling rate for sampling strategy')
 
     parser.add_argument('--losses-log-interval', type=int, default=10,
                         help='How often to write losses to file (in epochs)')
@@ -372,15 +374,11 @@ def main(args):
     start_num_backpropped = 0
     start_num_skipped = 0
 
-    if args.resume_at_epoch:
+    if args.resume_checkpoint_file:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
-        checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-        checkpoint_file = os.path.join(checkpoint_dir,
-                                       args.pickle_prefix + "_epoch{}_ckpt.t7".format(args.resume_at_epoch))
-        assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
-        print("Loading checkpoint at {}".format(checkpoint_file))
-        checkpoint = torch.load(checkpoint_file)
+        print("Loading checkpoint at {}".format(args.resume_checkpoint_file))
+        checkpoint = torch.load(args.resume_checkpoint_file)
         net.load_state_dict(checkpoint['net'])
         start_epoch = checkpoint['epoch']
         start_num_backpropped = checkpoint['num_backpropped']
@@ -414,6 +412,7 @@ def main(args):
     translate = args.sampling_strategy in ["translate", "recenter"]
 
     probability_calculator = lib.selectors.SelectProbabiltyCalculator(args.sampling_min,
+                                                                      args.sampling_max,
                                                                       len(dataset.classes),
                                                                       device,
                                                                       square=square,
