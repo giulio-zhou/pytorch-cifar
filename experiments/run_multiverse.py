@@ -70,6 +70,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint-epochs', help='delimited list of epochs', type=str)
     parser.add_argument('--experiment-prefix', help='experiment prefix')
     parser.add_argument('--checkpoint-prefix', help='checkpoint file name without epoch')
+    parser.add_argument('--num-extra-epochs', type=int, help='number of epochs to perform experiment for')
     args = parser.parse_args()
 
     checkpoint_epochs = [int(e) for e in args.checkpoint_epochs.split(",")]
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     args.sb_strategy = "sampling"
     print("Overriding sb strategy to {}".format(args.sb_strategy))
 
-    args.max_num_backprops = 50000 * 10
+    args.max_num_backprops = 50000 * args.num_extra_epochs
     print("Overriding max num backprops to {}".format(args.max_num_backprops))
 
     selectivities = [0.2, 0.4, 0.6, 0.8, 1]
