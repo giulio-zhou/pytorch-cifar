@@ -77,7 +77,7 @@ if __name__ == "__main__":
     args.sb_strategy = "sampling"
     print("Overriding sb strategy to {}".format(args.sb_strategy))
 
-    args.max_num_backprops = 50000 * 20
+    args.max_num_backprops = 50000 * 10
     print("Overriding max num backprops to {}".format(args.max_num_backprops))
 
     selectivities = [0.2, 0.4, 0.6, 0.8, 1]
