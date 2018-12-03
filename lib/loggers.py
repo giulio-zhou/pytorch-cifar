@@ -125,9 +125,10 @@ class ImageIdHistLogger(object):
 
 class LossesByEpochLogger(object):
 
-    def __init__(self, pickle_dir, pickle_prefix):
+    def __init__(self, pickle_dir, pickle_prefix, log_frequency):
         self.current_epoch = 0
         self.pickle_dir = pickle_dir
+        self.log_frequency = log_frequency
         self.pickle_prefix = pickle_prefix
         self.init_data()
 
@@ -156,7 +157,7 @@ class LossesByEpochLogger(object):
     def write(self):
         epoch_file = "{}.epoch_{}.pickle".format(self.data_pickle_file,
                                                  self.current_epoch)
-        if self.current_epoch % 10 == 0:
+        if self.current_epoch % self.log_frequency == 0:
             with open(epoch_file, "wb") as handle:
                 print(epoch_file)
                 pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)

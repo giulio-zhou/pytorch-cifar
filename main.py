@@ -328,6 +328,9 @@ def main():
     parser.add_argument('--sampling-min', type=float, default=1,
                         help='Minimum sampling rate for sampling strategy')
 
+    parser.add_argument('--losses-log-interval', type=int, default=10,
+                        help='How often to write losses to file (in epochs)')
+
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -461,7 +464,8 @@ def main():
                                                          args.pickle_prefix,
                                                          dataset.num_training_images)
     loss_hist_logger = lib.loggers.LossesByEpochLogger(args.pickle_dir,
-                                                       args.pickle_prefix)
+                                                       args.pickle_prefix,
+                                                       args.losses_log_interval)
     probability_by_image_logger = lib.loggers.ProbabilityByImageLogger(args.pickle_dir,
                                                                        args.pickle_prefix)
     trainer.on_forward_pass(logger.handle_forward_batch)
