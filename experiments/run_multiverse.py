@@ -46,7 +46,7 @@ def run_experiment(args, experiment_name):
     make_dir(pickle_directory)
 
     # Random seed management
-    num_seeds = 3
+    num_seeds = 1
     seeds = range(0, num_seeds * 10, 10)
 
     for seed in seeds:
