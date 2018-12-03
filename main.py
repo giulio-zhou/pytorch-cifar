@@ -385,9 +385,9 @@ def main(args):
         start_num_skipped = checkpoint['num_skipped']
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100, args.augment)
+        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment)
     elif args.dataset == "mnist":
-        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 100)
+        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
     else:
         print("Only cifar10 is implemented")
         exit()
