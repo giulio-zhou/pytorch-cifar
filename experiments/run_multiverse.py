@@ -81,6 +81,12 @@ if __name__ == "__main__":
     args.max_num_backprops = 50000 * args.num_extra_epochs
     print("Overriding max num backprops to {}".format(args.max_num_backprops))
 
+    args.sb_start_epoch = 1
+    print("Overriding sb start epoch to {}".format(args.sb_start_epoch))
+
+    args.augment = True
+    print("Overriding augment to {}".format(args.augment))
+
     selectivities = [0.2, 0.4, 0.6, 0.8, 1]
 
     for epoch in checkpoint_epochs:
