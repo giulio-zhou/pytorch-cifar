@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     checkpoint_epochs = [int(e) for e in args.checkpoint_epochs.split(",")]
 
-    args.sb_strategy = "sampling"
-    print("Overriding sb strategy to {}".format(args.sb_strategy))
+    #args.sb_strategy = "sampling"
+    #print("Overriding sb strategy to {}".format(args.sb_strategy))
 
     args.max_num_backprops = 50000 * args.num_extra_epochs
     print("Overriding max num backprops to {}".format(args.max_num_backprops))
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     args.augment = True
     print("Overriding augment to {}".format(args.augment))
 
-    selectivities = [0.2, 0.4, 0.6, 0.8, 1]
+    selectivities = [0.2, 1, 0.4, 0.6, 0.8]
 
     for epoch in checkpoint_epochs:
         checkpoint_file = "{}_epoch{}_ckpt.t7".format(args.checkpoint_prefix,
