@@ -47,7 +47,7 @@ def run_experiment(args, experiment_name):
 
     # Random seed management
     num_seeds = 1
-    seeds = range(0, num_seeds * 10, 10)
+    seeds = [i + 1337 for i in range(0, num_seeds * 10, 10)]
 
     for seed in seeds:
         output_file = get_output_file(args, 1, seed)
@@ -99,8 +99,8 @@ if __name__ == "__main__":
 
         for selectivity in selectivities:
             args.sampling_min = selectivity
-            args.sampling_max = selectivity
             print("Overriding sampling_min to {}".format(args.sampling_min))
+            args.sampling_max = selectivity
             print("Overriding sampling_max to {}".format(args.sampling_max))
             run_experiment(args, experiment_name)
 
