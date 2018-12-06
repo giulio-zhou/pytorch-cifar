@@ -51,7 +51,7 @@ def run_experiment(args, experiment_name):
 
     for trial, seed in enumerate(seeds):
         output_file = get_output_file(args, trial+1, seed)
-        args.pickle_prefix = get_output_prefix(args, 1, seed)
+        args.pickle_prefix = get_output_prefix(args, trial+1, seed)
 
         # Capture stdout to output file and run experiment
         stdout_ = sys.stdout
