@@ -275,12 +275,14 @@ class Trainer(object):
 
 
 def test(args,
-         net,
-         testloader,
+         dataset,
          device,
          epoch,
          state,
          logger):
+
+    net = dataset.model
+    testloader = dataset.testloader
 
     net.eval()
     test_loss = 0
@@ -327,6 +329,7 @@ def test(args,
                 'epoch': epoch,
                 'num_backpropped': logger.global_num_backpropped,
                 'num_skipped': logger.global_num_skipped,
+                'dataset': dataset,
             }
             checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
             if not os.path.isdir(checkpoint_dir):
@@ -377,6 +380,14 @@ def main(args):
     start_num_backpropped = 0
     start_num_skipped = 0
 
+    if args.dataset == "cifar10":
+        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment, shuffle=args.shuffle_labels)
+    elif args.dataset == "mnist":
+        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
+    else:
+        print("Only cifar10 is implemented")
+        exit()
+
     if args.resume_checkpoint_file:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
@@ -386,14 +397,8 @@ def main(args):
         start_epoch = checkpoint['epoch']
         start_num_backpropped = checkpoint['num_backpropped']
         start_num_skipped = checkpoint['num_skipped']
-
-    if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment, shuffle=args.shuffle_labels)
-    elif args.dataset == "mnist":
-        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
-    else:
-        print("Only cifar10 is implemented")
-        exit()
+        if "dataset" in checkpoint.keys():
+            dataset = checkpoint['dataset']
 
     optimizer = optim.SGD(dataset.model.parameters(),
                           lr=args.lr,
@@ -487,7 +492,7 @@ def main(args):
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
                                                   num_workers=0)
-        test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
+        test(args, dataset, device, epoch, state, logger)
 
         trainer.train(trainloader)
         logger.next_partition()
