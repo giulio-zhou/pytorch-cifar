@@ -46,12 +46,12 @@ def run_experiment(args, experiment_name):
     make_dir(pickle_directory)
 
     # Random seed management
-    num_seeds = 1
-    seeds = [i + 1337 for i in range(0, num_seeds * 10, 10)]
+    num_seeds = 4
+    seeds = [i + 1337 for i in range(1, num_seeds * 10, 10)]
 
     for trial, seed in enumerate(seeds):
-        output_file = get_output_file(args, trial+1, seed)
-        args.pickle_prefix = get_output_prefix(args, trial+1, seed)
+        output_file = get_output_file(args, trial+2, seed)
+        args.pickle_prefix = get_output_prefix(args, trial+2, seed)
 
         # Capture stdout to output file and run experiment
         stdout_ = sys.stdout
