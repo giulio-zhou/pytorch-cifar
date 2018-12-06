@@ -46,7 +46,7 @@ def run_experiment(args, experiment_name):
     make_dir(pickle_directory)
 
     # Random seed management
-    num_seeds = 1
+    num_seeds = 2
     seeds = [i + 1337 for i in range(0, num_seeds * 10, 10)]
 
     for trial, seed in enumerate(seeds):
