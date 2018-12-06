@@ -49,8 +49,8 @@ def run_experiment(args, experiment_name):
     num_seeds = 5
     seeds = [i + 1337 for i in range(0, num_seeds * 10, 10)]
 
-    for seed in seeds:
-        output_file = get_output_file(args, 1, seed)
+    for trial, seed in enumerate(seeds):
+        output_file = get_output_file(args, trial+1, seed)
         args.pickle_prefix = get_output_prefix(args, 1, seed)
 
         # Capture stdout to output file and run experiment
