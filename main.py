@@ -79,6 +79,9 @@ def set_experiment_default_args(parser):
     parser.add_argument('--losses-log-interval', type=int, default=10,
                         help='How often to write losses to file (in epochs)')
 
+    parser.add_argument('--shuffle-labels', action='store_true',
+                        help='shuffle labels')
+
     return parser
 
 
@@ -385,7 +388,7 @@ def main(args):
         start_num_skipped = checkpoint['num_skipped']
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment)
+        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment, shuffle=args.shuffle_labels)
     elif args.dataset == "mnist":
         dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
     else:

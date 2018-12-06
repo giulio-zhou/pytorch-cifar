@@ -3,6 +3,7 @@ from PIL import Image
 import os
 import os.path
 import numpy as np
+from random import shuffle
 import sys
 if sys.version_info[0] == 2:
     import cPickle as pickle
@@ -51,11 +52,12 @@ class CIFAR10(data.Dataset):
 
     def __init__(self, root, train=True,
                  transform=None, target_transform=None,
-                 download=False):
+                 download=False, shuffle_labels=False):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
         self.train = train  # training set or test set
+        self.shuffle_labels = shuffle_labels
 
         if download:
             self.download()
@@ -81,6 +83,9 @@ class CIFAR10(data.Dataset):
                 else:
                     entry = pickle.load(f, encoding='latin1')
                 self.data.append(entry['data'])
+                if self.shuffle_labels:
+                    shuffle(self.targets)
+                    print("[WARNING] SHUFFLING TARGETS")
                 if 'labels' in entry:
                     self.targets.extend(entry['labels'])
                 else:
