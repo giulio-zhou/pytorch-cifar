@@ -46,7 +46,7 @@ def run_experiment(args, experiment_name):
     make_dir(pickle_directory)
 
     # Random seed management
-    num_seeds = 5
+    num_seeds = 1
     seeds = [i + 1337 for i in range(0, num_seeds * 10, 10)]
 
     for trial, seed in enumerate(seeds):
@@ -69,6 +69,7 @@ if __name__ == "__main__":
     # New experiment-specific args
     parser.add_argument('--experiment-prefix', help='experiment prefix')
     parser.add_argument('--num-extra-epochs', type=int, help='number of epochs to perform experiment for')
+    parser.add_argument('--selectivities', help='delimited list of selectivities', type=str)
     args = parser.parse_args()
 
     checkpoint_epochs = [-1]
@@ -85,7 +86,10 @@ if __name__ == "__main__":
     args.augment = True
     print("Overriding augment to {}".format(args.augment))
 
-    selectivities = [0.2, 1, 0.4, 0.6, 0.8]
+    selectivities = [float(e) for e in args.selectivities.split(",")]
+
+    #selectivities = [0.2, 1, 0.4, 0.6, 0.8]
+    #selectivities = [1, 0.4, 0.6, 0.8]
 
     for epoch in checkpoint_epochs:
         experiment_name = "{}_epoch{}".format(args.experiment_prefix, 
