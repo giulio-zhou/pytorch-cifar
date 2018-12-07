@@ -381,7 +381,11 @@ def main(args):
     start_num_skipped = 0
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 20, args.augment, shuffle=args.shuffle_labels)
+        dataset = lib.datasets.CIFAR10(net,
+                                       args.test_batch_size,
+                                       args.batch_size * 20,
+                                       args.augment,
+                                       shuffle_labels=args.shuffle_labels)
     elif args.dataset == "mnist":
         dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
     else:
