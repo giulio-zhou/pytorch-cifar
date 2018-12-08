@@ -1,9 +1,9 @@
 expname=$1
 SAMPLING_MIN=$2
-NUM_TRIALS=$3
-MAX_NUM_BACKPROPS=$4
-LOSSES_LOG_INTERVAL=$5
-CHECKPOINT_INTERVAL=$6
+NET=$3
+BATCH_SIZE=$4
+
+NUM_TRIALS=1
 
 set -x
 
@@ -12,10 +12,9 @@ ulimit -a
 
 EXP_PREFIX=$expname
 SAMPLING_STRATEGY="deterministic"
-NET="resnet"
-BATCH_SIZE=128
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
+MAX_NUM_BACKPROPS=17500000
 SEED=1337
 
 EXP_NAME=$EXP_PREFIX
@@ -43,9 +42,7 @@ do
     --pickle-dir=$PICKLE_DIR \
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
-    --checkpoint-interval=$CHECKPOINT_INTERVAL \
-    --shuffle-labels \
+    --augment \
     --seed=$SEED \
-    --losses-log-interval=$LOSSES_LOG_INTERVAL \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done
