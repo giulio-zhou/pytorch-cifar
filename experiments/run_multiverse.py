@@ -68,6 +68,7 @@ if __name__ == "__main__":
 
     # New experiment-specific args
     parser.add_argument('--checkpoint-epochs', help='delimited list of epochs', type=str)
+    parser.add_argument('--selectivities', default=None, help='delimited list of selectivities', type=str)
     parser.add_argument('--experiment-prefix', help='experiment prefix')
     parser.add_argument('--checkpoint-prefix', help='checkpoint file name without epoch')
     parser.add_argument('--num-extra-epochs', type=int, help='number of epochs to perform experiment for')
@@ -87,7 +88,10 @@ if __name__ == "__main__":
     args.augment = True
     print("Overriding augment to {}".format(args.augment))
 
-    selectivities = [0.2, 1, 0.4, 0.6, 0.8]
+    if args.selectivities:
+        selectivities = [float(s) for s in args.selectivities.split(",")]
+    else:
+        selectivities = [0.2, 1, 0.4, 0.6, 0.8]
 
     for epoch in checkpoint_epochs:
         checkpoint_file = "{}_epoch{}_ckpt.t7".format(args.checkpoint_prefix,
