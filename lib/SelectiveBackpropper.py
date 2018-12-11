@@ -51,7 +51,7 @@ class SelectiveBackpropper:
                                 epoch=start_epoch,
                                 num_backpropped=start_num_backpropped,
                                 num_skipped=start_num_skipped)
-        #self.trainer.on_forward_pass(self.logger.handle_forward_batch)
+        self.trainer.on_forward_pass(self.logger.handle_forward_batch)
         self.trainer.on_backward_pass(self.logger.handle_backward_batch)
 
     def next_epoch(self):
