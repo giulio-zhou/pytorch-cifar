@@ -82,6 +82,8 @@ def set_experiment_default_args(parser):
 
     parser.add_argument('--shuffle-labels', action='store_true',
                         help='shuffle labels')
+    parser.add_argument('--sample-size', type=int, default=64, metavar='N',
+                        help='input batch size for training (default: 1)')
 
     return parser
 
@@ -302,6 +304,12 @@ def main(args):
                                                                  optimizer)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
+        final_backpropper = lib.backproppers.BaselineBackpropper(device,
+                                                                 dataset.model,
+                                                                 optimizer)
+    elif args.sb_strategy == "topk":
+        final_selector = lib.selectors.TopKSelector(probability_calculator,
+                                                    args.sample_size)
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer)

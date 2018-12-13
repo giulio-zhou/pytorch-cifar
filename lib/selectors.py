@@ -22,9 +22,34 @@ class PrimedSelector(object):
         return self.get_selector().mark(*args, **kwargs)
 
 
+class TopKSelector(object):
+    def __init__(self, probability_calculator, sample_size):
+        self.get_select_probability = probability_calculator.get_probability
+        self.sample_size = sample_size
+
+    def select(self, example):
+        select_probability = example.select_probability
+        draw = np.random.uniform(0, 1)
+        return draw < select_probability.item()
+
+    def mark(self, forward_pass_batch):
+        for example in forward_pass_batch:
+            example.select_probability = self.get_select_probability(
+                    example.target,
+                    example.softmax_output)
+        sps = [example.select_probability for example in forward_pass_batch]
+        indices = np.array(sps).argsort()[-self.sample_size:]
+        for i in range(len(forward_pass_batch)):
+            if i in indices:
+                forward_pass_batch[i].select = True
+            else:
+                forward_pass_batch[i].select = False
+        return forward_pass_batch
+
+
 class SamplingSelector(object):
-    def __init__(self, probability_calcultor):
-        self.get_select_probability = probability_calcultor.get_probability
+    def __init__(self, probability_calculator):
+        self.get_select_probability = probability_calculator.get_probability
 
     def select(self, example):
         select_probability = example.select_probability
@@ -41,9 +66,9 @@ class SamplingSelector(object):
 
 
 class DeterministicSamplingSelector(object):
-    def __init__(self, probability_calcultor, initial_sum=0):
+    def __init__(self, probability_calculator, initial_sum=0):
         self.global_select_sums = {}
-        self.get_select_probability = probability_calcultor.get_probability
+        self.get_select_probability = probability_calculator.get_probability
         self.initial_sum = initial_sum
 
     def increase_select_sum(self, example):
