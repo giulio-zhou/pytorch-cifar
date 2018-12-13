@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 import lib.cifar
 
 class CIFAR10:
-    def __init__(self, model, test_batch_size, partition_size, augment):
+    def __init__(self, model, test_batch_size, partition_size, augment, shuffle_labels):
 
         self.classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         self.model = model
@@ -20,7 +20,8 @@ class CIFAR10:
         testset = lib.cifar.CIFAR10(root='./data',
                                     train=False,
                                     download=False,
-                                    transform=transform_test)
+                                    transform=transform_test,
+                                    shuffle_labels=shuffle_labels)
         self.testloader = torch.utils.data.DataLoader(testset,
                                                       batch_size=test_batch_size,
                                                       shuffle=False,
@@ -44,7 +45,8 @@ class CIFAR10:
         self.trainset = lib.cifar.CIFAR10(root='./data',
                                           train=True,
                                           download=False,
-                                          transform=transform_train)
+                                          transform=transform_train,
+                                          shuffle_labels=shuffle_labels)
 
         self.num_training_images = len(self.trainset)
 

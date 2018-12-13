@@ -27,7 +27,6 @@ mkdir $PICKLE_DIR
 
 for i in `seq 1 $NUM_TRIALS`
 do
-
   OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
   PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
@@ -43,7 +42,6 @@ do
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
     --checkpoint-interval=$CHECKPOINT_INTERVAL \
-    --augment \
     --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done

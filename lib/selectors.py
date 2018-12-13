@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 
 class PrimedSelector(object):
-    def __init__(self, initial, final, initial_epochs):
-        self.epoch = 0
+    def __init__(self, initial, final, initial_epochs, epoch=0):
+        self.epoch = epoch
         self.initial = initial
         self.final = final
         self.initial_epochs = initial_epochs
@@ -87,8 +87,9 @@ class BaselineSelector(object):
 
 
 class SelectProbabiltyCalculator(object):
-    def __init__(self, sampling_min, num_classes, device, square=False, translate=False):
+    def __init__(self, sampling_min, sampling_max, num_classes, device, square=False, translate=False):
         self.sampling_min = sampling_min
+        self.sampling_max = sampling_max
         self.num_classes = num_classes
         self.device = device
         self.square = square
@@ -104,7 +105,7 @@ class SelectProbabiltyCalculator(object):
             l2_dist *= l2_dist
         if self.translate:
             l2_dist = self.translate_probability(l2_dist)
-        return torch.clamp(l2_dist, min=self.sampling_min, max=1)
+        return torch.clamp(l2_dist, min=self.sampling_min, max=self.sampling_max)
 
     def hot_encode_scalar(self, target):
         target_vector = np.zeros(self.num_classes)

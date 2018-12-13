@@ -32,6 +32,59 @@ def set_random_seeds(seed):
         torch.backends.cudnn.deterministic = True
     return
 
+def set_experiment_default_args(parser):
+    parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+    parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
+    parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
+    parser.add_argument('--decay', default=5e-4, type=float, help='decay')
+    parser.add_argument('--checkpoint-interval', type=int, default=None, metavar='N',
+                        help='how often to save snapshot')
+    parser.add_argument('--resume-checkpoint-file', default=None, metavar='N',
+                        help='checkpoint to resume from')
+    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
+                        help='turn on data augmentation for CIFAR10')
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+                        help='input batch size for training (default: 1)')
+    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
+                        help='input batch size for testing (default: 100)')
+    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
+                        help='how many batches to wait before logging training status')
+    parser.add_argument('--net', default="resnet", metavar='N',
+                        help='which network architecture to train')
+    parser.add_argument('--dataset', default="cifar10", metavar='N',
+                        help='which network architecture to train')
+    parser.add_argument('--write-images', default=False, type=bool,
+                        help='whether or not write png images by id')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed for randomization; None to not set seed')
+
+    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
+                        help='Selective backprop strategy among {baseline, deterministic, sampling}')
+    parser.add_argument('--sb-start-epoch', type=int, default=0,
+                        help='epoch to start selective backprop')
+    parser.add_argument('--pickle-dir', default="/tmp/",
+                        help='directory for pickles')
+    parser.add_argument('--pickle-prefix', default="stats",
+                        help='file prefix for pickles')
+    parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
+                        help='how many images to backprop total')
+
+    parser.add_argument('--sampling-strategy', default="square", metavar='N',
+                        help='Selective backprop sampling strategy among {translate, nosquare, square}')
+    parser.add_argument('--sampling-min', type=float, default=1,
+                        help='Minimum sampling rate for sampling strategy')
+    parser.add_argument('--sampling-max', type=float, default=1,
+                        help='Maximum sampling rate for sampling strategy')
+
+    parser.add_argument('--losses-log-interval', type=int, default=10,
+                        help='How often to write losses to file (in epochs)')
+
+    parser.add_argument('--shuffle-labels', action='store_true',
+                        help='shuffle labels')
+
+    return parser
+
+
 def get_stat(data):
     stat = {}
     stat["average"] = np.average(data)
@@ -44,11 +97,14 @@ def get_stat(data):
 
 class State:
 
-    def __init__(self, num_images, pickle_dir, pickle_prefix):
-        self.num_images_backpropped = 0
-        self.num_images_skipped = 0
-        self.num_images_seen = 0
-        self.sum_sp = 0
+    def __init__(self, num_images,
+                       pickle_dir,
+                       pickle_prefix,
+                       num_backpropped=0,
+                       num_skipped=0):
+        self.num_images_backpropped = num_backpropped
+        self.num_images_skipped = num_skipped
+        self.num_images_seen = num_backpropped + num_skipped
         self.pickle_dir = pickle_dir
         self.pickle_prefix = pickle_prefix
 
@@ -75,16 +131,6 @@ class State:
         with open(self.target_confidences_pickle_file, "wb") as handle:
             print(self.target_confidences_pickle_file)
             pickle.dump(self.target_confidences, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def update_sum_sp(self, sp):
-        self.num_images_seen += 1
-        self.sum_sp += sp
-
-    @property
-    def average_sp(self):
-        if self.num_images_seen == 0:
-            return 1
-        return self.sum_sp / float(self.num_images_seen)
 
 
 class Example(object):
@@ -229,12 +275,14 @@ class Trainer(object):
 
 
 def test(args,
-         net,
-         testloader,
+         dataset,
          device,
          epoch,
          state,
          logger):
+
+    net = dataset.model
+    testloader = dataset.testloader
 
     net.eval()
     test_loss = 0
@@ -271,67 +319,30 @@ def test(args,
                 time.time()))
 
     # Save checkpoint.
-    acc = 100.*correct/total
-    print('Saving..')
-    net_state = {
-        'net': net.state_dict(),
-        'acc': acc,
-        'epoch': epoch,
-        'num_backpropped': logger.global_num_backpropped,
-    }
-    checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-    if not os.path.isdir(checkpoint_dir):
-        os.mkdir(checkpoint_dir)
-    checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
-    print("Saving checkpoint at {}".format(checkpoint_file))
-    torch.save(net_state, checkpoint_file)
+    if args.checkpoint_interval:
+        if epoch % args.checkpoint_interval == 0:
+            acc = 100.*correct/total
+            print('Saving..')
+            net_state = {
+                'net': net.state_dict(),
+                'acc': acc,
+                'epoch': epoch,
+                'num_backpropped': logger.global_num_backpropped,
+                'num_skipped': logger.global_num_skipped,
+                'dataset': dataset,
+            }
+            checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
+            if not os.path.isdir(checkpoint_dir):
+                os.mkdir(checkpoint_dir)
+            checkpoint_file = os.path.join(checkpoint_dir,
+                                           args.pickle_prefix + "_epoch{}_ckpt.t7".format(epoch))
+            print("Saving checkpoint at {}".format(checkpoint_file))
+            torch.save(net_state, checkpoint_file)
 
 
-def main():
-
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-    parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-    parser.add_argument('--lr-sched', default=None, help='Path to learning rate schedule')
-    parser.add_argument('--momentum', default=0.9, type=float, help='learning rate')
-    parser.add_argument('--decay', default=5e-4, type=float, help='decay')
-    parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-    parser.add_argument('--augment', '-a', dest='augment', action='store_true',
-                        help='turn on data augmentation for CIFAR10')
-    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
-                        help='input batch size for training (default: 1)')
-    parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
-                        help='input batch size for testing (default: 100)')
-    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
-                        help='how many batches to wait before logging training status')
-    parser.add_argument('--net', default="resnet", metavar='N',
-                        help='which network architecture to train')
-    parser.add_argument('--dataset', default="cifar10", metavar='N',
-                        help='which network architecture to train')
-    parser.add_argument('--write-images', default=False, type=bool,
-                        help='whether or not write png images by id')
-    parser.add_argument('--seed', type=int, default=None,
-                        help='seed for randomization; None to not set seed')
-
-    parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
-                        help='Selective backprop strategy among {baseline, deterministic, sampling}')
-    parser.add_argument('--sb-start-epoch', type=int, default=0,
-                        help='epoch to start selective backprop')
-    parser.add_argument('--pickle-dir', default="/tmp/",
-                        help='directory for pickles')
-    parser.add_argument('--pickle-prefix', default="stats",
-                        help='file prefix for pickles')
-    parser.add_argument('--max-num-backprops', type=int, default=float('inf'), metavar='N',
-                        help='how many images to backprop total')
-
-    parser.add_argument('--sampling-strategy', default="square", metavar='N',
-                        help='Selective backprop sampling strategy among {recenter, translate, nosquare, square}')
-    parser.add_argument('--sampling-min', type=float, default=1,
-                        help='Minimum sampling rate for sampling strategy')
-
-    args = parser.parse_args()
+def main(args):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     set_random_seeds(args.seed)
 
@@ -365,42 +376,55 @@ def main():
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
 
-    if args.resume:
-        # Load checkpoint.
-        print('==> Resuming from checkpoint..')
-        checkpoint_dir = os.path.join(args.pickle_dir, "checkpoint")
-        checkpoint_file = os.path.join(checkpoint_dir, args.pickle_prefix + "_ckpt.t7")
-        assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
-        print("Loading checkpoint at {}".format(checkpoint_file))
-        checkpoint = torch.load(checkpoint_file)
-        net.load_state_dict(checkpoint['net'])
-        start_epoch = checkpoint['epoch']
+    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+    start_num_backpropped = 0
+    start_num_skipped = 0
 
     if args.dataset == "cifar10":
-        dataset = lib.datasets.CIFAR10(net, args.test_batch_size, args.batch_size * 100, args.augment)
+        dataset = lib.datasets.CIFAR10(net,
+                                       args.test_batch_size,
+                                       args.batch_size * 20,
+                                       args.augment,
+                                       shuffle_labels=args.shuffle_labels)
     elif args.dataset == "mnist":
-        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 100)
+        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
     else:
         print("Only cifar10 is implemented")
         exit()
+
+    if args.resume_checkpoint_file:
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        print("Loading checkpoint at {}".format(args.resume_checkpoint_file))
+        checkpoint = torch.load(args.resume_checkpoint_file)
+        net.load_state_dict(checkpoint['net'])
+        start_epoch = checkpoint['epoch']
+        start_num_backpropped = checkpoint['num_backpropped']
+        start_num_skipped = checkpoint['num_skipped']
+        if "dataset" in checkpoint.keys():
+            dataset = checkpoint['dataset']
 
     optimizer = optim.SGD(dataset.model.parameters(),
                           lr=args.lr,
                           momentum=args.momentum,
                           weight_decay=args.decay)
 
-    state = State(dataset.num_training_images, args.pickle_dir, args.pickle_prefix)
+    state = State(dataset.num_training_images,
+                  args.pickle_dir,
+                  args.pickle_prefix,
+                  start_num_backpropped,
+                  start_num_skipped)
     if args.write_images:
         image_writer = lib.loggers.ImageWriter('./data', args.dataset, dataset.unnormalizer)
         for partition in dataset.partitions:
             image_writer.write_partition(partition)
 
     ## Setup Trainer ##
-    square = args.sampling_strategy in ["square", "translate", "recenter"]
+    square = args.sampling_strategy in ["square", "translate"]
     translate = args.sampling_strategy in ["translate", "recenter"]
-    recenter = args.sampling_strategy == "recenter"
 
     probability_calculator = lib.selectors.SelectProbabiltyCalculator(args.sampling_min,
+                                                                      args.sampling_max,
                                                                       len(dataset.classes),
                                                                       device,
                                                                       square=square,
@@ -409,15 +433,13 @@ def main():
         final_selector = lib.selectors.SamplingSelector(probability_calculator)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
-                                                                 optimizer,
-                                                                 recenter=recenter)
+                                                                 optimizer)
     elif args.sb_strategy == "deterministic":
         final_selector = lib.selectors.DeterministicSamplingSelector(probability_calculator,
                                                                      initial_sum=1)
         final_backpropper = lib.backproppers.SamplingBackpropper(device,
                                                                  dataset.model,
-                                                                 optimizer,
-                                                                 recenter=recenter)
+                                                                 optimizer)
     elif args.sb_strategy == "baseline":
         final_selector = lib.selectors.BaselineSelector()
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
@@ -429,13 +451,15 @@ def main():
 
     selector = lib.selectors.PrimedSelector(lib.selectors.BaselineSelector(),
                                             final_selector,
-                                            args.sb_start_epoch)
+                                            args.sb_start_epoch,
+                                            epoch=start_epoch)
 
     backpropper = lib.backproppers.PrimedBackpropper(lib.backproppers.BaselineBackpropper(device,
                                                                                           dataset.model,
                                                                                           optimizer),
                                                      final_backpropper,
-                                                     args.sb_start_epoch)
+                                                     args.sb_start_epoch,
+                                                     epoch=start_epoch)
 
     trainer = Trainer(device,
                       dataset.model,
@@ -444,15 +468,22 @@ def main():
                       args.batch_size,
                       max_num_backprops=args.max_num_backprops,
                       lr_schedule=args.lr_sched)
-    logger = lib.loggers.Logger(log_interval = args.log_interval)
+    logger = lib.loggers.Logger(log_interval = args.log_interval,
+                                epoch=start_epoch,
+                                num_backpropped=start_num_backpropped,
+                                num_skipped=start_num_skipped)
     image_id_hist_logger = lib.loggers.ImageIdHistLogger(args.pickle_dir,
                                                          args.pickle_prefix,
                                                          dataset.num_training_images)
+    loss_hist_logger = lib.loggers.LossesByEpochLogger(args.pickle_dir,
+                                                       args.pickle_prefix,
+                                                       args.losses_log_interval)
     probability_by_image_logger = lib.loggers.ProbabilityByImageLogger(args.pickle_dir,
                                                                        args.pickle_prefix)
     trainer.on_forward_pass(logger.handle_forward_batch)
     trainer.on_backward_pass(logger.handle_backward_batch)
     trainer.on_backward_pass(image_id_hist_logger.handle_backward_batch)
+    trainer.on_backward_pass(loss_hist_logger.handle_backward_batch)
     trainer.on_backward_pass(probability_by_image_logger.handle_backward_batch)
     stopped = False
 
@@ -465,7 +496,7 @@ def main():
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
                                                   num_workers=0)
-        test(args, dataset.model, dataset.testloader, device, epoch, state, logger)
+        test(args, dataset, device, epoch, state, logger)
 
         trainer.train(trainloader)
         logger.next_partition()
@@ -475,9 +506,13 @@ def main():
 
         logger.next_epoch()
         image_id_hist_logger.next_epoch()
+        loss_hist_logger.next_epoch()
         probability_by_image_logger.next_epoch()
         selector.next_epoch()
         backpropper.next_epoch()
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+    parser = set_experiment_default_args(parser)
+    args = parser.parse_args()
+    main(args)

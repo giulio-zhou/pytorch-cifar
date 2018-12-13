@@ -1,7 +1,9 @@
 expname=$1
 SAMPLING_MIN=$2
 NUM_TRIALS=$3
-CHECKPOINT_INTERVAL=$4
+MAX_NUM_BACKPROPS=$4
+LOSSES_LOG_INTERVAL=$5
+CHECKPOINT_INTERVAL=$6
 
 set -x
 
@@ -14,7 +16,6 @@ NET="resnet"
 BATCH_SIZE=128
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
-MAX_NUM_BACKPROPS=17500000
 SEED=1337
 
 EXP_NAME=$EXP_PREFIX
@@ -45,5 +46,6 @@ do
     --checkpoint-interval=$CHECKPOINT_INTERVAL \
     --augment \
     --seed=$SEED \
+    --losses-log-interval=$LOSSES_LOG_INTERVAL \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done

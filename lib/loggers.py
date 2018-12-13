@@ -123,15 +123,55 @@ class ImageIdHistLogger(object):
                 pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+class LossesByEpochLogger(object):
+
+    def __init__(self, pickle_dir, pickle_prefix, log_frequency):
+        self.current_epoch = 0
+        self.pickle_dir = pickle_dir
+        self.log_frequency = log_frequency
+        self.pickle_prefix = pickle_prefix
+        self.init_data()
+
+    def next_epoch(self):
+        self.write()
+        self.current_epoch += 1
+        self.data = []
+
+    def init_data(self):
+        # Store frequency of each image getting backpropped
+        self.data = []
+        data_pickle_dir = os.path.join(self.pickle_dir, "losses")
+        self.data_pickle_file = os.path.join(data_pickle_dir,
+                                                 "{}_losses".format(self.pickle_prefix))
+        # Make images hist pickle path
+        if not os.path.exists(data_pickle_dir):
+            os.mkdir(data_pickle_dir)
+
+    def update_data(self, losses):
+        self.data += losses
+
+    def handle_backward_batch(self, batch):
+        losses = [example.loss.item() for example in batch]
+        self.update_data(losses)
+
+    def write(self):
+        epoch_file = "{}.epoch_{}.pickle".format(self.data_pickle_file,
+                                                 self.current_epoch)
+        if self.current_epoch % self.log_frequency == 0:
+            with open(epoch_file, "wb") as handle:
+                print(epoch_file)
+                pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
 class Logger(object):
 
-    def __init__(self, log_interval=1):
-        self.current_epoch = 0
+    def __init__(self, log_interval=1, epoch=0, num_backpropped=0, num_skipped=0):
+        self.current_epoch = epoch
         self.current_batch = 0
         self.log_interval = log_interval
 
-        self.global_num_backpropped = 0
-        self.global_num_skipped = 0
+        self.global_num_backpropped = num_backpropped
+        self.global_num_skipped = num_skipped
 
         self.partition_loss = 0
         self.partition_backpropped_loss = 0
