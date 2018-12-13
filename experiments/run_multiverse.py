@@ -6,11 +6,16 @@ import main
 
 
 def get_output_prefix(args, trial, seed):
+    if args.topk:
+        var_arg = args.sample_size
+    else:
+        var_arg = args.sampling_min
+
     if args.lr_sched:
         return "{}_{}_{}_{}_{}_0.0_{}_trial{}_seed{}".format(args.sb_strategy,
                                                                 args.dataset,
                                                                 args.net,
-                                                                args.sampling_min,
+                                                                var_arg,
                                                                 args.batch_size,
                                                                 args.decay,
                                                                 trial,
@@ -19,7 +24,7 @@ def get_output_prefix(args, trial, seed):
         return  "{}_{}_{}_{}_{}_{}_{}_trial{}_seed{}".format(args.sb_strategy,
                                                                 args.dataset,
                                                                 args.net,
-                                                                args.sampling_min,
+                                                                var_arg,
                                                                 args.batch_size,
                                                                 args.lr,
                                                                 args.decay,
