@@ -6,7 +6,13 @@ import trainer as trainer
 
 class SelectiveBackpropper:
 
-    def __init__(self, model, optimizer, sampling_min, batch_size, lr_sched, num_classes):
+    def __init__(self,
+                 model,
+                 optimizer,
+                 sampling_min,
+                 batch_size,
+                 lr_sched,
+                 num_classes):
 
         ## Hardcoded params
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
