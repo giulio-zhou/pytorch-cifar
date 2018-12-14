@@ -1,7 +1,9 @@
 expname=$1
 SAMPLING_MIN=$2
-NUM_TRIALS=$3
-CHECKPOINT_INTERVAL=$4
+NET=$3
+BATCH_SIZE=$4
+
+NUM_TRIALS=3
 
 set -x
 
@@ -10,8 +12,6 @@ ulimit -a
 
 EXP_PREFIX=$expname
 SAMPLING_STRATEGY="deterministic"
-NET="resnet"
-BATCH_SIZE=128
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
 MAX_NUM_BACKPROPS=17500000
@@ -27,6 +27,7 @@ mkdir $PICKLE_DIR
 
 for i in `seq 1 $NUM_TRIALS`
 do
+
   OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
   PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
@@ -34,6 +35,7 @@ do
 
   python main.py \
     --sb-strategy=$SAMPLING_STRATEGY \
+    --sb-start-epoch=0 \
     --net=$NET \
     --batch-size=$BATCH_SIZE \
     --decay=$DECAY \
@@ -41,7 +43,7 @@ do
     --pickle-dir=$PICKLE_DIR \
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
-    --checkpoint-interval=$CHECKPOINT_INTERVAL \
+    --augment \
     --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done
