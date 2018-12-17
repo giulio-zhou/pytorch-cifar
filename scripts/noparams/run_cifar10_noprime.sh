@@ -15,7 +15,6 @@ SAMPLING_STRATEGY="sampling"
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
 MAX_NUM_BACKPROPS=17500000
-SEED=1337
 
 EXP_NAME=$EXP_PREFIX
 
@@ -28,6 +27,7 @@ mkdir $PICKLE_DIR
 for i in `seq 1 $NUM_TRIALS`
 do
 
+  let SEED=1336+$i
   OUTPUT_FILE="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
   PICKLE_PREFIX="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
