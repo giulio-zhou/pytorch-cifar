@@ -76,7 +76,7 @@ def set_experiment_default_args(parser):
     parser.add_argument('--sampling-max', type=float, default=1,
                         help='Maximum sampling rate for sampling strategy')
 
-    parser.add_argument('--losses-log-interval', type=int, default=10,
+    parser.add_argument('--losses-log-interval', type=int, default=500,
                         help='How often to write losses to file (in epochs)')
 
     parser.add_argument('--shuffle-labels', action='store_true',
