@@ -1,7 +1,7 @@
 expname=$1
 SAMPLE_SIZE=$2
-NET=$3
 BATCH_SIZE=$3
+NET=$4
 
 set -x
 
