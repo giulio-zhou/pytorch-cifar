@@ -1,5 +1,7 @@
 expname=$1
 SAMPLE_SIZE=$2
+NET=$3
+BATCH_SIZE=$3
 
 set -x
 
@@ -10,8 +12,6 @@ EXP_PREFIX=$expname
 SAMPLING_MIN=0
 SAMPLING_STRATEGY="topk"
 NUM_TRIALS=1
-NET="resnet"
-BATCH_SIZE=128
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
 MAX_NUM_BACKPROPS=17500000
