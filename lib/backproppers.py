@@ -56,7 +56,7 @@ class BaselineBackpropper(object):
 
         # Add for logging selected loss
         for example, loss in zip(batch, losses):
-            example.backpropped_loss = loss
+            example.backpropped_loss = loss.item()
 
         # Reduce loss
         loss = losses.mean()
@@ -105,7 +105,7 @@ class SamplingBackpropper(object):
 
         # Add for logging selected loss
         for example, loss in zip(batch, losses):
-            example.backpropped_loss = loss
+            example.backpropped_loss = loss.item()
 
         # Reduce loss
         loss = losses.mean()
