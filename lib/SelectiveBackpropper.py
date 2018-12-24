@@ -2,11 +2,17 @@ import backproppers
 import loggers
 import selectors
 import torch
-import main as sb
+import trainer as trainer
 
 class SelectiveBackpropper:
 
-    def __init__(self, model, optimizer, sampling_min, batch_size, lr_sched, num_classes):
+    def __init__(self,
+                 model,
+                 optimizer,
+                 sampling_min,
+                 batch_size,
+                 lr_sched,
+                 num_classes):
 
         ## Hardcoded params
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -40,7 +46,7 @@ class SelectiveBackpropper:
                                                      final_backpropper,
                                                      sb_start_epoch,
                                                      epoch=start_epoch)
-        self.trainer = sb.Trainer(device,
+        self.trainer = trainer.Trainer(device,
                              model,
                              self.selector,
                              self.backpropper,

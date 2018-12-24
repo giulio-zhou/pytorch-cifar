@@ -1,7 +1,9 @@
 expname=$1
-SAMPLE_SIZE=$2
-BATCH_SIZE=$3
-NET=$4
+SAMPLING_MIN=$2
+NET=$3
+BATCH_SIZE=$4
+
+NUM_TRIALS=3
 
 set -x
 
@@ -9,9 +11,7 @@ ulimit -n 2048
 ulimit -a
 
 EXP_PREFIX=$expname
-SAMPLING_MIN=0
-SAMPLING_STRATEGY="topk"
-NUM_TRIALS=1
+SAMPLING_STRATEGY="sampling"
 LR="data/config/lr_sched_orig"
 DECAY=0.0005
 MAX_NUM_BACKPROPS=17500000
@@ -28,14 +28,14 @@ mkdir $PICKLE_DIR
 for i in `seq 1 $NUM_TRIALS`
 do
 
-  OUTPUT_FILE=$SAMPLING_STRATEGY"_cifar10_"$NET"_"$SAMPLE_SIZE"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
-  PICKLE_PREFIX=$SAMPLING_STRATEGY"_cifar10_"$NET"_"$SAMPLE_SIZE"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
+  OUTPUT_FILE="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
+  PICKLE_PREFIX="sampling_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
   python main.py \
     --sb-strategy=$SAMPLING_STRATEGY \
-    --sample-size=$SAMPLE_SIZE \
+    --sb-start-epoch=0 \
     --net=$NET \
     --batch-size=$BATCH_SIZE \
     --decay=$DECAY \
@@ -43,7 +43,6 @@ do
     --pickle-dir=$PICKLE_DIR \
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
-    --sb-start-epoch=1 \
     --augment \
     --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
