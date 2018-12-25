@@ -134,7 +134,6 @@ class State:
             print(self.target_confidences_pickle_file)
             pickle.dump(self.target_confidences, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-
 def test(args,
          dataset,
          device,
