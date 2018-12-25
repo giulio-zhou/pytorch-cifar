@@ -25,17 +25,14 @@ PICKLE_DIR=$OUTPUT_DIR/pickles
 mkdir $OUTPUT_DIR
 mkdir $PICKLE_DIR
 
-git rev-parse HEAD &> $OUTPUT_DIR/sha
-
 for i in `seq 1 $NUM_TRIALS`
 do
-
   OUTPUT_FILE="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED"_v2"
   PICKLE_PREFIX="deterministic_cifar10_"$NET"_"$SAMPLING_MIN"_"$BATCH_SIZE"_0.0_"$DECAY"_trial"$i"_seed"$SEED
 
   echo $OUTPUT_DIR/$OUTPUT_FILE
 
-  time python main.py \
+  python main.py \
     --sb-strategy=$SAMPLING_STRATEGY \
     --net=$NET \
     --batch-size=$BATCH_SIZE \
@@ -45,7 +42,6 @@ do
     --pickle-prefix=$PICKLE_PREFIX \
     --sampling-min=$SAMPLING_MIN \
     --checkpoint-interval=$CHECKPOINT_INTERVAL \
-    --augment \
     --seed=$SEED \
     --lr-sched $LR &> $OUTPUT_DIR/$OUTPUT_FILE
 done
