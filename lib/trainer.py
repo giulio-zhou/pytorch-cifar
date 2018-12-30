@@ -112,9 +112,6 @@ class Trainer(object):
         self.backprop_queue += annotated_forward_batch
         backprop_batch = self.get_batch(final)
         if backprop_batch:
-            if len(backprop_batch) == 0:
-                print("Warning: backprop batch has length 0")
-                continue
             annotated_backward_batch = self.backpropper.backward_pass(backprop_batch)
             self.emit_backward_pass(annotated_backward_batch)
 
@@ -132,6 +129,7 @@ class Trainer(object):
         return [Example(*example) for example in examples]
 
     def get_batch(self, final):
+
         num_images_to_backprop = 0
         for index, example in enumerate(self.backprop_queue):
             num_images_to_backprop += int(example.select)
@@ -141,9 +139,11 @@ class Trainer(object):
                 self.backprop_queue = self.backprop_queue[index+1:]
                 return backprop_batch
         if final:
+            def get_num_to_backprop(batch):
+                return sum([1 for example in batch if example.select])
             backprop_batch = self.backprop_queue
             self.backprop_queue = []
-            if len(backprop_batch) == 0:
+            if get_num_to_backprop(backprop_batch) == 0:
                 return None
             return backprop_batch
         return None
