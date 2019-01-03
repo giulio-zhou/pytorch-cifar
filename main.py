@@ -57,6 +57,8 @@ def set_experiment_default_args(parser):
                         help='whether or not write png images by id')
     parser.add_argument('--seed', type=int, default=None,
                         help='seed for randomization; None to not set seed')
+    parser.add_argument('--optimizer', default="sgd", metavar='N',
+                        help='Optimizer among {sgd, adam}')
 
     parser.add_argument('--sb-strategy', default="deterministic", metavar='N',
                         help='Selective backprop strategy among {baseline, deterministic, sampling}')
@@ -265,10 +267,16 @@ def main(args):
         if "dataset" in checkpoint.keys():
             dataset = checkpoint['dataset']
 
-    optimizer = optim.SGD(dataset.model.parameters(),
-                          lr=args.lr,
-                          momentum=args.momentum,
-                          weight_decay=args.decay)
+    if args.optimizer == "sgd":
+        optimizer = optim.SGD(dataset.model.parameters(),
+                              lr=args.lr,
+                              momentum=args.momentum,
+                              weight_decay=args.decay)
+    elif args.optimizer == "adam":
+        optimizer = optim.Adam(dataset.model.parameters(),
+                              lr=args.lr,
+                              weight_decay=args.decay)
+
 
     state = State(dataset.num_training_images,
                   args.pickle_dir,
