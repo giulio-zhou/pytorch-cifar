@@ -165,9 +165,11 @@ def test(args,
             targets_array = targets.cpu().numpy()
             outputs_array = softmax_outputs.cpu().numpy()
             confidences = [o[t] for t, o in zip(targets_array, outputs_array)]
-            state.update_target_confidences(epoch,
-                                            confidences[:10],
-                                            logger.global_num_backpropped)
+            if epoch % 10 == 0:
+                state.update_target_confidences(epoch,
+                                                confidences,
+                                                logger.global_num_backpropped)
+                state.write_summaries()
 
     test_loss /= len(testloader.dataset)
     print('test_debug,{},{},{},{:.6f},{:.6f},{}'.format(
@@ -243,13 +245,12 @@ def main(args):
     if args.dataset == "cifar10":
         dataset = lib.datasets.CIFAR10(net,
                                        args.test_batch_size,
-                                       args.batch_size * 20,
                                        args.augment,
                                        shuffle_labels=args.shuffle_labels)
     elif args.dataset == "mnist":
-        dataset = lib.datasets.MNIST(device, args.test_batch_size, args.batch_size * 20)
+        dataset = lib.datasets.MNIST(device, args.test_batch_size)
     else:
-        print("Only cifar10 is implemented")
+        print("Only cifar10 and mnist are implemented")
         exit()
 
     if args.resume_checkpoint_file:
@@ -274,6 +275,7 @@ def main(args):
                   args.pickle_prefix,
                   start_num_backpropped,
                   start_num_skipped)
+
     if args.write_images:
         image_writer = lib.loggers.ImageWriter('./data', args.dataset, dataset.unnormalizer)
         for partition in dataset.partitions:
