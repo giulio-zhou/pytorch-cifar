@@ -1,6 +1,6 @@
 sex -x
 EXPNAME="190104_trials"
-NUM_TRIALS=5
+NUM_TRIALS=2
 SEED=1000
 
 for i in `seq 1 $NUM_TRIALS`
