@@ -104,3 +104,67 @@ class MNISTNet(nn.Module):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+
+import torchvision.datasets as datasets
+class IndexedImageFolder(datasets.ImageFolder):
+    def __getitem__(self, index):
+        retval = super(datasets.ImageFolder, self).__getitem__(index)
+        return retval + (index,)
+
+class TinyImageNet:
+    def __init__(self, model, test_batch_size, partition_size, augment):
+        self.model = model
+        self.augment = augment
+
+        # Data loading code
+        import glob
+        import numpy as np
+        import os
+        root_dir = 'tiny_imagenet_data'
+        traindir = os.path.join(root_dir, 'train')
+        testdir = os.path.join(root_dir, 'val')
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+        self.classes = sorted(glob.glob(traindir + '/*'))
+
+        # Training set
+        if self.augment:
+            print("Performing data augmentation on Tiny ImageNet")
+            transform_train = transforms.Compose([
+                transforms.RandomCrop(64, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0., 0., 0.), (1.0, 1.0, 1.0)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        else:
+            print("Not performing data augmentation on Tiny ImageNet")
+            transform_train = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0., 0., 0.), (1.0, 1.0, 1.0)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        self.trainset = IndexedImageFolder(traindir,
+                                                    transform_train)
+        self.num_training_images = len(self.trainset)
+
+        # Test set
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0., 0., 0.), (1.0, 1.0, 1.0)),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+        testset = IndexedImageFolder(testdir,
+                                              transform_test)
+        self.testloader = torch.utils.data.DataLoader(testset,
+                                                      batch_size=test_batch_size,
+                                                      shuffle=False,
+                                                      num_workers=0)
+
+        self.unnormalizer = transforms.Compose([
+            transforms.Normalize(mean = [ 0., 0., 0. ],
+                                 std = [ 1/0.2023, 1/0.1994, 1/0.2010 ]),
+            transforms.Normalize(mean = [ -0.4914, -0.4822, -0.4465 ],
+                                 std = [ 1., 1., 1. ])
+        ])
+
