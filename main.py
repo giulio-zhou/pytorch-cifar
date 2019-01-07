@@ -249,6 +249,8 @@ def main(args):
                                        shuffle_labels=args.shuffle_labels)
     elif args.dataset == "mnist":
         dataset = lib.datasets.MNIST(device, args.test_batch_size)
+    elif args.dataset == "tiny_imagenet":
+        dataset = lib.datasets.TinyImageNet(net, args.test_batch_size, args.batch_size * 100, args.augment)
     else:
         print("Only cifar10 and mnist are implemented")
         exit()
