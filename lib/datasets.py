@@ -4,9 +4,10 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 import lib.cifar
+import lib.mnist
 
 class CIFAR10:
-    def __init__(self, model, test_batch_size, partition_size, augment, shuffle_labels):
+    def __init__(self, model, test_batch_size, augment, shuffle_labels):
 
         self.classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         self.model = model
@@ -57,7 +58,7 @@ class CIFAR10:
                                       ])
 
 class MNIST:
-    def __init__(self, device, test_batch_size, partition_size):
+    def __init__(self, device, test_batch_size):
 
         self.model = MNISTNet().to(device)
 
@@ -65,7 +66,7 @@ class MNIST:
 
         # Testing set
         self.testloader = torch.utils.data.DataLoader(
-            torchvision.datasets.MNIST('../data', train=False, download=True,
+            lib.mnist.MNIST('../data', train=False, download=True,
                            transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
@@ -73,13 +74,11 @@ class MNIST:
             batch_size=test_batch_size, shuffle=False, num_workers=0)
 
         # Training set
-        self.trainset = torchvision.datasets.MNIST('../data', train=True, download=True,
+        self.trainset = lib.mnist.MNIST('../data', train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
                        ]))
-        self.trainset = [t + (i,) for i, t in enumerate(self.trainset)]
-        self.partitions = [self.trainset[i:i + partition_size] for i in xrange(0, len(self.trainset), partition_size)]
         self.unnormalizer = transforms.Compose([transforms.Normalize(mean = [ 0., 0., 0. ],
                                                             std = [ 1/0.3081]),
                                        transforms.Normalize(mean = [ -0.1307],
