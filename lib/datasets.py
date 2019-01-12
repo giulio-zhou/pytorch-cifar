@@ -105,6 +105,7 @@ class MNISTNet(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
+from torch.utils.data import ConcatDataset
 from torchvision import datasets
 class IndexedSVHN(datasets.SVHN):
     def __getitem__(self, index):
@@ -146,10 +147,15 @@ class SVHN:
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
-        self.trainset = IndexedSVHN(root='./svhn_data',
-                                    split='train',
-                                    download=False,
-                                    transform=transform_train)
+        self.trainset1 = IndexedSVHN(root='./svhn_data',
+                                     split='train',
+                                     download=False,
+                                     transform=transform_train)
+        self.trainset2 = IndexedSVHN(root='./svhn_data',
+                                     split='extra',
+                                     download=False,
+                                     transform=transform_train)
+        self.trainset = ConcatDataset([self.trainset1, self.trainset2])
 
         self.num_training_images = len(self.trainset)
 
