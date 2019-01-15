@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -38,7 +39,8 @@ class Trainer(object):
                  backpropper,
                  batch_size,
                  max_num_backprops=float('inf'),
-                 lr_schedule=None):
+                 lr_schedule=None,
+                 num_test_points=100):
         self.device = device
         self.net = net
         self.selector = selector
@@ -53,6 +55,7 @@ class Trainer(object):
         if lr_schedule:
             self.load_lr_schedule(lr_schedule)
             self.on_backward_pass(self.update_learning_rate)
+        self.num_test_points = num_test_points
 
     def update_num_backpropped(self, batch):
         self.global_num_backpropped += sum([1 for e in batch if e.select])
@@ -97,13 +100,17 @@ class Trainer(object):
     def stopped(self):
         return self.global_num_backpropped >= self.max_num_backprops
 
-    def train(self, trainloader):
+    def train(self, trainloader, test_fn=None):
+        test_points = np.linspace(0, len(trainloader), self.num_test_points,
+                                  endpoint=False, dtype=np.int32)
         for i, batch in enumerate(trainloader):
             if self.stopped: break
             if i == len(trainloader) - 1:
                 self.train_batch(batch, final=True)
             else:
                 self.train_batch(batch, final=False)
+            if test_fn and (i in test_points):
+                test_fn()
 
     def train_batch(self, batch, final):
         forward_pass_batch = self.forward_pass(*batch)

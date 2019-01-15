@@ -387,9 +387,9 @@ def main(args):
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
                                                   num_workers=0)
-        test(args, dataset, device, epoch, state, logger)
+        test_fn = lambda: test(args, dataset, device, epoch, state, logger)
 
-        trainer.train(trainloader)
+        trainer.train(trainloader, test_fn)
         logger.next_partition()
         if trainer.stopped:
             stopped = True
