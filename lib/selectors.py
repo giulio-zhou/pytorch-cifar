@@ -182,7 +182,7 @@ class BatchSelectProbabilityCalculator(object):
     def get_probability(self, targets, softmax_outputs):
         targets = torch.stack(targets, dim=0).cpu().numpy()
         softmax_outputs = torch.stack(softmax_outputs, dim=0).cpu().numpy()
-        classes = np.diag(np.arange(self.num_classes))
+        classes = np.diag(np.ones(self.num_classes))
         target_tensor = classes[targets]
         l2_dist = np.linalg.norm(target_tensor - softmax_outputs, axis=1)
         if self.square:
