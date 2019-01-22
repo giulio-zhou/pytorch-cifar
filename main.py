@@ -334,6 +334,17 @@ def main(args):
         final_backpropper = lib.backproppers.BaselineBackpropper(device,
                                                                  dataset.model,
                                                                  optimizer)
+    elif args.sb_strategy == "batch_sampling":
+        probability_calculator = lib.selectors.BatchSelectProbabilityCalculator(args.sampling_min,
+                                                                                args.sampling_max,
+                                                                                len(dataset.classes),
+                                                                                device,
+                                                                                square=square,
+                                                                                translate=translate)
+        final_selector = lib.selectors.BatchSamplingSelector(probability_calculator)
+        final_backpropper = lib.backproppers.SamplingBackpropper(device,
+                                                                 dataset.model,
+                                                                 optimizer)
     else:
         print("Use sb-strategy in {sampling, deterministic, baseline}")
         exit()

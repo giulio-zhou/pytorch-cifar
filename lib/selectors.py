@@ -64,6 +64,27 @@ class SamplingSelector(object):
             example.select = self.select(example)
         return forward_pass_batch
 
+class BatchSamplingSelector(object):
+    def __init__(self, probability_calculator):
+        self.get_select_probability = probability_calculator.get_probability
+
+    def select(self, examples, select_probabilities):
+        draws = np.random.uniform(0, 1, len(examples))
+        return draws < select_probabilities
+
+    def mark(self, forward_pass_batch):
+        targets = map(lambda x: x.target, forward_pass_batch)
+        softmax_output = map(lambda x: x.softmax_output, forward_pass_batch)
+        select_probabilities = self.get_select_probability(
+            targets, softmax_output)
+        selection_mask = self.select(forward_pass_batch, select_probabilities)
+        for example, sp, sm in zip(forward_pass_batch, select_probabilities, selection_mask):
+            example.select_probability = sp
+            example.select = sm
+        # for select_idx in np.where(selection_mask)[0]:
+        #     forward_pass_batch[select_idx].select = True
+        return forward_pass_batch
+
 class DeterministicSamplingSelector(object):
     def __init__(self, probability_calculator, initial_sum=0):
         self.global_select_sums = {}
@@ -146,4 +167,24 @@ class SelectProbabiltyCalculator(object):
         l2_dist = (((l2_dist - self.sampling_min) * new_range) / old_range) + self.sampling_min
         return l2_dist
 
+class BatchSelectProbabilityCalculator(object):
+    def __init__(self, sampling_min, sampling_max, num_classes, device, square=False, translate=False):
+        self.sampling_min = sampling_min
+        self.sampling_max = sampling_max
+        self.num_classes = num_classes
+        self.device = device
+        self.square = square
+        self.translate = translate
+        self.old_max = .9
+        if self.square:
+            self.old_max *= self.old_max
 
+    def get_probability(self, targets, softmax_outputs):
+        targets = torch.stack(targets, dim=0).cpu().numpy()
+        softmax_outputs = torch.stack(softmax_outputs, dim=0).cpu().numpy()
+        classes = np.diag(np.arange(self.num_classes))
+        target_tensor = classes[targets]
+        l2_dist = np.linalg.norm(target_tensor - softmax_outputs, axis=1)
+        if self.square:
+            l2_dist = np.square(l2_dist)
+        return np.clip(l2_dist, self.sampling_min, self.sampling_max)
